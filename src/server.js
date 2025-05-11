@@ -1,40 +1,41 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const sequelize = require('./config/database');
+import dotenv from 'dotenv';
+dotenv.config();
+import express from "express";
 
-// Rutas
-const authRoutes = require('./routes/auth.routes');
+import cors from "cors";
+
+import db from "./app/models/index.js";
+
+import authRoutes from "./app/routes/auth.routes.js";
+
+import userRoutes from "./app/routes/user.routes.js";
 
 const app = express();
 
-// Seguridad básica
-app.use(cors());
-app.use(helmet());
+const corsOptions = {
+  origin: ["http://localhost:5173", "http://localhost:8080"]
+};
+
+app.use(cors(corsOptions));
+
 app.use(express.json());
 
-// Limitar solicitudes (rate limiting)
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-}));
+app.use(express.urlencoded({ extended: true }));
 
-// Rutas
-app.use('/api/auth', authRoutes);
+app.get("/", (req, res) => {
+  res.json({ message: "Welcome to the Node.js JWT Authentication API." });
+});
 
-// Conexión a DB y levantar servidor
-const PORT = process.env.PORT || 4000;
-(async () => {
-  try {
-    await sequelize.authenticate();
-    console.log('✅ Conexión a la base de datos establecida correctamente.');
+app.use("/api/auth", authRoutes);
 
-    app.listen(PORT, () => {
-      console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-    });
-  } catch (error) {
-    console.error('❌ No se pudo conectar a la base de datos:', error);
-  }
-})();
+app.use("/api/test", userRoutes);
+
+const PORT = process.env.PORT || 3000;
+
+db.sequelize.sync({ force: false }).then(() => {
+  console.log("Database synchronized");
+});
+
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}.`);
+});
