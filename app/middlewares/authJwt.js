@@ -4,16 +4,25 @@ import authConfig from "../config/auth.config.js";
 const { user: User, role: Role } = db;
 
 export const verifyToken = async (req, res, next) => {
-  const token = req.headers["x-access-token"] || req.headers["authorization"];
-  if (!token) {
+  const authHeader = (req.headers["authorization"] || '').trim();  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(403).json({ 
       success: false,
-      message: "No se proporcionó un token de autenticación" 
+      message: "Se requiere un token de autenticación válido en formato 'Bearer <token>'" 
+    });
+  }
+
+  const token = authHeader.substring(7);
+
+  if (token.length < 100 || token.length > 2000) {
+    return res.status(403).json({
+      success: false,
+      message: "Token malformado"
     });
   }
 
   try {
-    const decoded = jwt.verify(token.replace("Bearer ", ""), authConfig.secret);
+    const decoded = jwt.verify(token, authConfig.secret);
     req.userId = decoded.id;
     
     const user = await User.findByPk(req.userId, {

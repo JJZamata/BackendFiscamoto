@@ -1,23 +1,23 @@
-import dotenv from 'dotenv';
+import dotenv from 'dotenv';//accediendo a .env
 dotenv.config();
 
 export default {
-  HOST: process.env.DB_HOST,
-  USER: process.env.DB_USER,
-  PASSWORD: process.env.DB_PASSWORD,
-  DB: process.env.DB_NAME,
-  PORT: process.env.DB_PORT,
-  dialect: "mysql",
+  HOST: process.env.DB_HOST,//direccion
+  USER: process.env.DB_USER,//usuario
+  PASSWORD: process.env.DB_PASSWORD,//contraseña
+  DB: process.env.DB_NAME,//nombre BD
+  PORT: process.env.DB_PORT,//puerto DB
+  dialect: "mysql",//motor de base de datos
   pool: {
-    max: 5,
-    min: 0,
-    acquire: 30000,
-    idle: 10000
+    max: 5,//conexiones permitidas
+    min: 0,//conexiones mantenidas
+    acquire: 30000,//3segundos para conectarse o error
+    idle: 10000//1 segundo para permanecer inactiva antes de ser liberada
   },
   dialectOptions: {
     ssl: {
-      require: true,
-      rejectUnauthorized: false
+      require: true, //pide si o si conexion SSL
+      rejectUnauthorized: false//conexion SSL con certificados no verificados
     }
   }
 };
