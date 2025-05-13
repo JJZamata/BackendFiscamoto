@@ -1,9 +1,5 @@
 import { validationResult } from "express-validator";
 import db from "../models/index.js";
-import User from "../models/user.model.js";
-import Role from "../models/role.model.js";
-
-const { ROLES, user: UserModel } = db;
 
 // Middleware para validar los resultados de express-validator
 export const validateRequest = (req, res, next) => {
@@ -20,34 +16,23 @@ export const validateRequest = (req, res, next) => {
   next();
 };
 
-// Verificar si el username o email ya existe
 export const checkDuplicateUsernameOrEmail = async (req, res, next) => {
   try {
-    // Verificar username
-    const userByUsername = await UserModel.findOne({
+    const user = await db.user.findOne({
       where: {
-        username: req.body.username
+        [db.Sequelize.Op.or]: [
+          { username: req.body.username },
+          { email: req.body.email }
+        ]
       }
     });
 
-    if (userByUsername) {
+    if (user) {
+      const field = user.username === req.body.username ? 'username' : 'email';
       return res.status(400).json({
         success: false,
-        message: "Error: El nombre de usuario ya está en uso"
-      });
-    }
-
-    // Verificar email
-    const userByEmail = await UserModel.findOne({
-      where: {
-        email: req.body.email
-      }
-    });
-
-    if (userByEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Error: El email ya está en uso"
+        message: `El ${field} ya está en uso`,
+        field
       });
     }
 
@@ -56,44 +41,75 @@ export const checkDuplicateUsernameOrEmail = async (req, res, next) => {
     console.error("Error en checkDuplicateUsernameOrEmail:", error);
     res.status(500).json({
       success: false,
-      message: "Error interno del servidor al verificar credenciales"
+      message: "Error al verificar credenciales"
     });
   }
 };
 
-// Verificar si los roles existen
-export const checkRolesExisted = async (req, res, next) => {
-  if (req.body.roles) {
+export const checkDuplicateImei = async (req, res, next) => {
+  // Solo validar IMEI si es fiscalizador
+  if (req.body.roles && req.body.roles.includes('fiscalizador') && req.body.imei) {
     try {
-      const roles = await Role.findAll({
-        where: {
-          name: req.body.roles
+      const existingUser = await db.user.findOne({ 
+        where: { 
+          imei: req.body.imei,
+          // Opcional: excluir al propio usuario si es actualización
+          [db.Sequelize.Op.not]: { id: req.params.id || null }
         }
       });
 
-      const validRoles = ['admin', 'fiscalizador'];
-      const invalidRoles = req.body.roles.filter(role => !validRoles.includes(role));
-
-      if (invalidRoles.length > 0) {
+      if (existingUser) {
         return res.status(400).json({
           success: false,
-          message: `Error: Los siguientes roles no son válidos: ${invalidRoles.join(', ')}`
-        });
-      }
-
-      if (roles.length !== req.body.roles.length) {
-        return res.status(400).json({
-          success: false,
-          message: "Error: Uno o más roles no existen en la base de datos"
+          message: "El IMEI ya está registrado para otro fiscalizador",
+          field: "imei",
+          existingUser: {
+            username: existingUser.username,
+            email: existingUser.email
+          }
         });
       }
     } catch (error) {
-      console.error("Error en checkRolesExisted:", error);
+      console.error("Error en checkDuplicateImei:", error);
       return res.status(500).json({
         success: false,
-        message: "Error interno del servidor al verificar roles"
+        message: "Error al verificar IMEI"
       });
     }
   }
   next();
+};
+
+export const checkRolesExisted = async (req, res, next) => {
+  if (!req.body.roles || req.body.roles.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Debe proporcionar al menos un rol"
+    });
+  }
+
+  try {
+    const roles = await db.role.findAll();
+    const validRoles = roles.map(role => role.name);
+    
+    const invalidRoles = req.body.roles.filter(role => 
+      !validRoles.includes(role)
+    );
+
+    if (invalidRoles.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Roles no válidos: ${invalidRoles.join(', ')}`,
+        validRoles
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Error en checkRolesExisted:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al verificar roles"
+    });
+  }
 };

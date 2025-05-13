@@ -4,9 +4,11 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import cookieParser from 'cookie-parser';
 import db from "./app/models/index.js";
 import authRoutes from "./app/routes/auth.routes.js";
 import userRoutes from "./app/routes/user.routes.js";
+import authConfig from "./app/config/auth.config.js";
 
 const app = express();
 
@@ -14,60 +16,86 @@ const app = express();
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 100, // límite de 100 peticiones por ventana
-  message: 'Demasiadas peticiones desde esta IP, por favor intente más tarde'
+  message: {
+    success: false,
+    message: 'Demasiadas solicitudes, por favor intente más tarde'
+  }
 });
 
 // Configuración de CORS más restrictiva
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ["http://localhost:5173", "http://localhost:8080"],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  maxAge: 86400 // 24 horas
+  origin: function (origin, callback) {
+    // Permitir solicitudes sin origen (como apps móviles)
+    if (!origin) return callback(null, true);
+    
+    // Obtener todos los orígenes permitidos de la configuración
+    const allowedOrigins = [
+      ...authConfig.roles.admin.allowedOrigins,
+      ...authConfig.roles.fiscalizador.allowedOrigins
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error('No permitido por CORS'));
+    }
+  },
+  credentials: true, // Permitir cookies en solicitudes CORS
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-IMEI']
 };
 
-// Middleware de seguridad
+// Middleware de seguridad y configuración
 app.use(helmet());
 app.use(cors(corsOptions));
 app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser()); // Middleware para manejar cookies
 
 // Ruta de prueba con mensaje más específico
 app.get("/", (req, res) => {
   res.json({ 
     message: "API de FISCAMOTO - Sistema de Fiscalización",
     version: "1.0.0",
-    status: "online"
+    status: "online",
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
 // Rutas de la API
 app.use("/api/auth", authRoutes);
-app.use("/api/test", userRoutes);
+app.use("/api/users", userRoutes); // Cambiado de /api/test a /api/users para consistencia
 
-// Manejador de errores global
+// Manejador de errores global mejorado
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({
-    message: 'Error interno del servidor',
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Error interno del servidor',
     error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
 const PORT = process.env.PORT || 3000;
 
-// Sincronización de la base de datos con opciones más seguras
-db.sequelize.sync({ 
-  force: false,
-  logging: process.env.NODE_ENV === 'development' ? console.log : false
-}).then(() => {
-  console.log("Base de datos sincronizada correctamente");
-}).catch(err => {
-  console.error("Error al sincronizar la base de datos:", err);
-});
+// Función para inicializar el servidor
+const startServer = async () => {
+  try {
+    // Inicializar la base de datos
+    await db.initializeDatabase();
+    
+    // Iniciar el servidor
+    app.listen(PORT, () => {
+      console.log(`Servidor corriendo en el puerto ${PORT}`);
+      console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+      console.log('Configuración de CORS:', corsOptions);
+    });
+  } catch (error) {
+    console.error('Error al iniciar el servidor:', error);
+    process.exit(1);
+  }
+};
 
-app.listen(PORT, () => {
-  console.log(`Servidor ejecutándose en el puerto ${PORT}`);
-  console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
-});
+// Iniciar el servidor
+startServer();

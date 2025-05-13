@@ -1,11 +1,13 @@
 import express from "express";
 import { body } from "express-validator";
-import { signup, signin } from "../controllers/auth.controller.js";
+import { signup, signin, signout } from "../controllers/auth.controller.js";
 import {
   checkDuplicateUsernameOrEmail,
   checkRolesExisted,
+  checkDuplicateImei,
   validateRequest
 } from "../middlewares/verifySignUp.js";
+import { verifyToken } from "../middlewares/authJwt.js";
 
 const router = express.Router();
 
@@ -40,11 +42,14 @@ const signupValidation = [
     .withMessage('Los roles válidos son: admin, fiscalizador'),
   
   body('imei')
-    .optional()
-    .isLength({ min: 15, max: 15 })
-    .withMessage('El IMEI debe tener 15 dígitos')
-    .isNumeric()
-    .withMessage('El IMEI debe contener solo números'),
+    .if(body('roles').custom(roles => roles.includes('fiscalizador')))
+    .notEmpty().withMessage('IMEI es requerido para fiscalizadores')
+    .isLength({ min: 15, max: 15 }).withMessage('IMEI debe tener 15 dígitos')
+    .isNumeric().withMessage('IMEI debe ser numérico'),
+  
+  body('imei')
+    .if(body('roles').custom(roles => !roles.includes('fiscalizador')))
+    .isEmpty().withMessage('IMEI no debe ser proporcionado para este rol'),
   
   validateRequest
 ];
@@ -60,6 +65,10 @@ const signinValidation = [
     .notEmpty()
     .withMessage('La contraseña es requerida'),
   
+  body('clientType')
+    .isIn(['web', 'mobile'])
+    .withMessage('El tipo de cliente debe ser "web" o "mobile"'),
+  
   body('imei')
     .optional()
     .isLength({ min: 15, max: 15 })
@@ -73,13 +82,19 @@ const signinValidation = [
 // Rutas de autenticación
 router.post("/signup", 
   signupValidation,
-  [checkDuplicateUsernameOrEmail, checkRolesExisted], 
+  [checkDuplicateUsernameOrEmail, checkRolesExisted,checkDuplicateImei], 
   signup
 );
 
+//inicio de sesión
 router.post("/signin", 
   signinValidation,
   signin
+);
+
+router.post("/signout",
+  verifyToken,
+  signout
 );
 
 export default router;

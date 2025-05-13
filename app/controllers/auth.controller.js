@@ -9,58 +9,39 @@ export const signup = async (req, res) => {
   try {
     const { username, email, password, roles, imei } = req.body;
 
-    // Validar que los roles sean válidos
-    const validRoles = await Role.findAll({
-      where: { name: roles }
-    });
-
-    if (validRoles.length !== roles.length) {
-      return res.status(400).json({
-        success: false,
-        message: "Uno o más roles no son válidos"
-      });
-    }
-
-    // Verificar si el usuario es fiscalizador y tiene IMEI
+    // Verificación específica para fiscalizadores
     const isFiscalizador = roles.includes('fiscalizador');
     if (isFiscalizador && !imei) {
       return res.status(400).json({
         success: false,
-        message: "Los fiscalizadores deben proporcionar un IMEI"
+        message: "Los fiscalizadores deben proporcionar un IMEI",
+        field: "imei"
       });
     }
 
-    // Verificar si el usuario es admin y no debe tener IMEI
+    // Verificación para administradores
     const isAdmin = roles.includes('admin');
     if (isAdmin && imei) {
       return res.status(400).json({
         success: false,
-        message: "Los administradores no deben tener IMEI"
+        message: "Los administradores no deben tener IMEI",
+        field: "imei"
       });
     }
 
-    // Verificar si el IMEI ya está en uso
-    if (imei) {
-      const existingUser = await User.findOne({ where: { imei } });
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: "El IMEI ya está registrado"
-        });
-      }
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 8);
-
-    const user = await User.create({
+    // Creación del usuario
+    const user = await db.user.create({
       username,
       email,
-      password: hashedPassword,
-      imei: isFiscalizador ? imei : null,
-      isActive: true
+      password: await bcrypt.hash(password, 10),
+      imei: isFiscalizador ? imei : null
     });
 
-    await user.setRoles(validRoles);
+    // Asignación de roles
+    const roleInstances = await db.role.findAll({
+      where: { name: roles }
+    });
+    await user.setRoles(roleInstances);
 
     res.status(201).json({
       success: true,
@@ -68,15 +49,27 @@ export const signup = async (req, res) => {
       data: {
         id: user.id,
         username: user.username,
-        email: user.email,
-        roles: roles
+        roles: roleInstances.map(role => role.name)
       }
     });
+
   } catch (error) {
     console.error("Error en signup:", error);
+    
+    // Manejo específico para errores de Sequelize (duplicados)
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      const field = error.errors[0]?.path || 'campo';
+      return res.status(400).json({
+        success: false,
+        message: `Error de duplicidad: El ${field} ya está en uso`,
+        field,
+        details: process.env.NODE_ENV === 'development' ? error.errors : undefined
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: "Error al registrar el usuario",
+      message: "Error al registrar usuario",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -84,7 +77,8 @@ export const signup = async (req, res) => {
 
 export const signin = async (req, res) => {
   try {
-    const { username, password, imei } = req.body;
+    const { username, password, imei, clientType } = req.body;
+    const isMobileClient = clientType === 'mobile';
 
     const user = await User.findOne({
       where: { username },
@@ -136,7 +130,8 @@ export const signin = async (req, res) => {
     const token = jwt.sign(
       { 
         id: user.id,
-        roles: user.roles.map(role => role.name)
+        roles: user.roles.map(role => role.name),
+        clientType: isMobileClient ? 'mobile' : 'web'
       },
       authConfig.secret,
       { expiresIn: tokenExpiration }
@@ -149,24 +144,79 @@ export const signin = async (req, res) => {
       lastLoginDevice: req.headers["user-agent"]
     });
 
-    res.status(200).json({
-      success: true,
-      data: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        roles: user.roles.map(role => role.name),
-        accessToken: token,
-        expiresIn: tokenExpiration,
-        requiresImei: user.isFiscalizador()
-      }
-    });
+    // Preparar respuesta base
+    const responseData = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      roles: user.roles.map(role => role.name),
+      requiresImei: user.isFiscalizador()
+    };
+
+    if (isMobileClient) {
+      // Para clientes móviles, enviar el token en el cuerpo de la respuesta
+      return res.status(200).json({
+        success: true,
+        data: {
+          ...responseData,
+          accessToken: token,
+          expiresIn: tokenExpiration
+        }
+      });
+    } else {
+      // Para clientes web, establecer cookie segura
+      res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: tokenExpiration * 1000, // Convertir a milisegundos
+        path: '/'
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: responseData
+      });
+    }
   } catch (error) {
     console.error("Error en signin:", error);
     res.status(500).json({
       success: false,
       message: "Error al iniciar sesión",
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+export const signout = async (req, res) => {
+  try {
+    const clientType = req.user?.clientType || req.body.clientType;
+    
+    if (clientType === 'mobile') {
+      // Para móvil, solo necesitamos responder con éxito
+      return res.status(200).json({
+        success: true,
+        message: "Sesión cerrada exitosamente"
+      });
+    } else {
+      // Para web, limpiar la cookie
+      res.clearCookie('auth_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/'
+      });
+      
+      return res.status(200).json({
+        success: true,
+        message: "Sesión cerrada exitosamente"
+      });
+    }
+  } catch (error) {
+    console.error("Error en signout:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al cerrar sesión"
     });
   }
 };

@@ -4,15 +4,28 @@ import authConfig from "../config/auth.config.js";
 const { user: User, role: Role } = db;
 
 export const verifyToken = async (req, res, next) => {
-  const authHeader = (req.headers["authorization"] || '').trim();  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(403).json({ 
-      success: false,
-      message: "Se requiere un token de autenticación válido en formato 'Bearer <token>'" 
-    });
+  let token = null;
+  let clientType = 'web';
+
+  // Intentar obtener el token de la cookie primero (para web)
+  if (req.cookies && req.cookies.auth_token) {
+    token = req.cookies.auth_token;
+  } 
+  // Si no hay cookie, intentar obtener el token del header Authorization (para móvil)
+  else {
+    const authHeader = (req.headers["authorization"] || '').trim();
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+      clientType = 'mobile';
+    }
   }
 
-  const token = authHeader.substring(7);
+  if (!token) {
+    return res.status(403).json({ 
+      success: false,
+      message: "Se requiere autenticación" 
+    });
+  }
 
   if (token.length < 100 || token.length > 2000) {
     return res.status(403).json({
@@ -23,7 +36,17 @@ export const verifyToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, authConfig.secret);
+    
+    // Verificar que el tipo de cliente coincida
+    if (decoded.clientType !== clientType) {
+      return res.status(403).json({
+        success: false,
+        message: "Tipo de cliente no válido para este token"
+      });
+    }
+
     req.userId = decoded.id;
+    req.clientType = clientType;
     
     const user = await User.findByPk(req.userId, {
       include: [{
