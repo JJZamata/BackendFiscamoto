@@ -18,6 +18,8 @@ import {
   isAdminOrFiscalizador
 } from "../middlewares/authJwt.js";
 
+import { criticalLimiter } from "../config/rateLimiter.config.js";
+
 const router = express.Router();
 
 // Rutas públicas
@@ -29,7 +31,7 @@ router.put("/profile", [verifyToken], updateProfile);
 
 // Rutas de administrador
 router.get("/admin/dashboard", [verifyToken, isAdmin], adminDashboard);
-router.get("/admin/users", [verifyToken, isAdmin], listUsers);
+router.get("/admin/users", [verifyToken, isAdmin, criticalLimiter], listUsers);
 router.put("/admin/users/:id/deactivate", [verifyToken, isAdmin], deactivateUser);
 router.put("/admin/users/:id/activate", [verifyToken, isAdmin], activateUser);
 

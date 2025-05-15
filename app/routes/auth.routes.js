@@ -8,6 +8,7 @@ import {
   validateRequest
 } from "../middlewares/verifySignUp.js";
 import { verifyToken } from "../middlewares/authJwt.js";
+import { loginLimiter } from "../config/rateLimiter.config.js";
 
 const router = express.Router();
 
@@ -88,6 +89,7 @@ router.post("/signup",
 
 //inicio de sesión
 router.post("/signin", 
+  loginLimiter,
   signinValidation,
   signin
 );

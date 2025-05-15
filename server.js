@@ -3,24 +3,14 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import cookieParser from 'cookie-parser';
 import db from "./app/models/index.js";
 import authRoutes from "./app/routes/auth.routes.js";
 import userRoutes from "./app/routes/user.routes.js";
 import authConfig from "./app/config/auth.config.js";
+import { generalLimiter } from "./app/config/rateLimiter.config.js";
 
 const app = express();
-
-// Configuración de rate limiter
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100, // límite de 100 peticiones por ventana
-  message: {
-    success: false,
-    message: 'Demasiadas solicitudes, por favor intente más tarde'
-  }
-});
 
 // Configuración de CORS más restrictiva
 const corsOptions = {
@@ -48,7 +38,7 @@ const corsOptions = {
 // Middleware de seguridad y configuración
 app.use(helmet());
 app.use(cors(corsOptions));
-app.use(limiter);
+app.use(generalLimiter); // Limitador general para todas las rutas no específicas
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser()); // Middleware para manejar cookies
