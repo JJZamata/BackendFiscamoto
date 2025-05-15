@@ -2,14 +2,17 @@ import rateLimit from "express-rate-limit";
 
 // Limitador para rutas de login (más restrictivo)
 export const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10, // 10 intentos por ventana
-  message: {
-    success: false,
-    message: 'Demasiados intentos de inicio de sesión. Por favor, intente nuevamente en 15 minutos.'
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  handler: (req, res) => { // Usa 'handler' para personalizar la respuesta
+    res.status(429).json({
+      success: false,
+      message: "Demasiados intentos. Cuenta bloqueada por 15 minutos.",
+      timestamp: new Date().toISOString(),
+      resetTime: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    });
   },
-  standardHeaders: true, // Retorna rate limit info en los headers `RateLimit-*`
-  legacyHeaders: false, // Deshabilita los headers `X-RateLimit-*`
+  standardHeaders: true,
 });
 
 // Limitador para rutas generales (más flexible)
