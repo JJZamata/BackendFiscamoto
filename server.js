@@ -12,7 +12,7 @@ import { generalLimiter } from "./app/config/rateLimiter.config.js";
 
 const app = express();
 
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 // Configuración de CORS más restrictiva
 const corsOptions = {
   origin: function (origin, callback) {
