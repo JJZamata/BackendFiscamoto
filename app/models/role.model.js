@@ -9,12 +9,6 @@ export default (sequelize, Sequelize) => {
             type: Sequelize.ENUM('admin', 'fiscalizador'),
             allowNull: false,
             unique: true,
-            validate: {
-                isIn: {
-                    args: [['admin', 'fiscalizador']],
-                    msg: 'El rol debe ser "admin" o "fiscalizador"'
-                }
-            }
         },
         description: {
             type: Sequelize.STRING,

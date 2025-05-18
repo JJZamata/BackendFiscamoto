@@ -1,227 +1,245 @@
 import db from "../models/index.js";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
 import authConfig from "../config/auth.config.js";
 import { getPlatformFromRequest } from "../utils/platformDetector.js";
 
 const { user: User, role: Role } = db;
 
-export const signup = async (req, res) => {
-  try {
-    const { username, email, password, roles, deviceInfo } = req.body;
-
-    // Verificación específica para fiscalizadores
-    const isFiscalizador = roles.includes('fiscalizador');
-    if (isFiscalizador && (!deviceInfo || !deviceInfo.deviceId)) {
-      return res.status(400).json({
-        success: false,
+// Mapeo de errores a respuestas HTTP
+const ERROR_MAPPING = {
+    'FISCALIZADOR_REQUIRES_DEVICE': {
+        status: 400,
         message: "Los fiscalizadores deben proporcionar un deviceInfo con deviceId",
         field: "deviceInfo"
-      });
-    }
-
-    // Verificación para administradores
-    const isAdmin = roles.includes('admin');
-    if (isAdmin && deviceInfo) {
-      return res.status(400).json({
-        success: false,
+    },
+    'ADMIN_CANNOT_HAVE_DEVICE': {
+        status: 400,
         message: "Los administradores no deben tener deviceInfo",
         field: "deviceInfo"
-      });
+    },
+    'DEVICE_ID_REQUIRED': {
+        status: 400,
+        message: "Se requiere un deviceId válido",
+        field: "deviceInfo.deviceId"
+    },
+    'INVALID_PLATFORM': {
+        status: 400,
+        message: "Plataforma no válida (debe ser android o ios)",
+        field: "deviceInfo.platform"
+    },
+    'SequelizeUniqueConstraintError': {
+        status: 400,
+        message: (error) => `Error de duplicidad: El ${error.errors[0]?.path || 'campo'} ya está en uso`,
+        field: (error) => error.errors[0]?.path || 'campo'
     }
+};
 
-    // Creación del usuario
-    const user = await db.user.create({
-      username,
-      email,
-      password: await bcrypt.hash(password, 10),
-      deviceInfo: isFiscalizador ? deviceInfo : null
-    });
+export const signup = async (req, res) => {
+  try {
+      const { username, email, password, roles } = req.body;
 
-    // Asignación de roles
-    const roleInstances = await db.role.findAll({
-      where: { name: roles }
-    });
-    await user.setRoles(roleInstances);
+      // Creación del usuario - Las validaciones se manejan en el modelo
+      const user = await User.create({
+          username,
+          email,
+          password, // El hashing se maneja en el setter del modelo
+          deviceInfo: req.body.deviceInfo,
+          roles // Sequelize manejará la asociación
+      });
 
-    res.status(201).json({
-      success: true,
-      message: "Usuario registrado exitosamente",
-      data: {
-        id: user.id,
-        username: user.username,
-        roles: roleInstances.map(role => role.name)
+      // Asignación de roles
+      if (roles && roles.length) {
+          const roleInstances = await Role.findAll({
+              where: { name: roles }
+          });
+          await user.setRoles(roleInstances);
       }
-    });
+
+      res.status(201).json({
+          success: true,
+          message: "Usuario registrado exitosamente",
+          data: {
+              id: user.id,
+              username: user.username,
+              roles: roles || []
+          }
+      });
 
   } catch (error) {
-    console.error("Error en signup:", error);
-    
-    // Manejo específico para errores de Sequelize (duplicados)
-    if (error.name === 'SequelizeUniqueConstraintError') {
-      const field = error.errors[0]?.path || 'campo';
-      return res.status(400).json({
-        success: false,
-        message: `Error de duplicidad: El ${field} ya está en uso`,
-        field,
-        details: process.env.NODE_ENV === 'development' ? error.errors : undefined
-      });
-    }
+      console.error("Error en signup:", error);
+      
+      // Manejo de errores conocido
+      if (ERROR_MAPPING[error.message]) {
+          const { status, message, field } = ERROR_MAPPING[error.message];
+          return res.status(status).json({
+              success: false,
+              message,
+              field
+          });
+      }
 
-    res.status(500).json({
-      success: false,
-      message: "Error al registrar usuario",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+      // Manejo de errores de Sequelize
+      if (error.name in ERROR_MAPPING) {
+          const { status, message, field } = ERROR_MAPPING[error.name];
+          return res.status(status).json({
+              success: false,
+              message: typeof message === 'function' ? message(error) : message,
+              field: typeof field === 'function' ? field(error) : field
+          });
+      }
+
+      // Error genérico
+      res.status(500).json({
+          success: false,
+          message: "Error al registrar usuario",
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
   }
 };
 
 export const signin = async (req, res) => {
   try {
-    const { username, password, deviceInfo } = req.body;
-    const platform = getPlatformFromRequest(req);
-    const isMobilePlatform = platform === 'android' || platform === 'ios';
+      const { username, password, deviceInfo } = req.body;
+      const platform = getPlatformFromRequest(req);
+      const isMobilePlatform = platform === 'android' || platform === 'ios';
 
-    const user = await User.findOne({
-      where: { username },
-      include: { model: Role, as: "roles" }
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Usuario no encontrado"
+      const user = await User.findOne({
+          where: { username },
+          include: { model: Role, as: "roles" }
       });
-    }
 
-    if (!user.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: "Usuario inactivo"
-      });
-    }
-
-    const passwordIsValid = await bcrypt.compare(password, user.password);
-    if (!passwordIsValid) {
-      return res.status(401).json({
-        success: false,
-        message: "Contraseña inválida"
-      });
-    }
-
-    // Verificar deviceInfo para fiscalizadores
-    if (user.isFiscalizador()) {
-      if (!deviceInfo || !deviceInfo.deviceId) {
-        return res.status(400).json({
-          success: false,
-          message: "Se requiere el deviceInfo con deviceId para fiscalizadores"
-        });
+      if (!user) {
+          return res.status(404).json({
+              success: false,
+              message: "Usuario no encontrado"
+          });
       }
-      if (deviceInfo.deviceId !== user.deviceInfo?.deviceId) {
-        return res.status(401).json({
-          success: false,
-          message: "DeviceId no válido para este fiscalizador"
-        });
+
+      if (!user.isActive) {
+          return res.status(401).json({
+              success: false,
+              message: "Usuario inactivo"
+          });
       }
-    }
 
-    // Obtener configuración específica del rol
-    const roleConfig = authConfig.roles[user.roles[0].name];
-    const tokenExpiration = roleConfig ? roleConfig.tokenExpiration : authConfig.jwtExpiration;
+      // Usamos el método del modelo para verificar la contraseña
+      const passwordIsValid = user.verifyPassword(password);
+      if (!passwordIsValid) {
+          return res.status(401).json({
+              success: false,
+              message: "Contraseña inválida"
+          });
+      }
 
-    const token = jwt.sign(
-      { 
-        id: user.id,
-        roles: user.roles.map(role => role.name),
-        platform
-      },
-      authConfig.secret,
-      { expiresIn: tokenExpiration }
-    );
+      // Verificación de deviceInfo para fiscalizadores
+      if (user.isFiscalizador()) {
+          if (!deviceInfo || !deviceInfo.deviceId) {
+              return res.status(400).json({
+                  success: false,
+                  message: "Se requiere el deviceInfo con deviceId para fiscalizadores"
+              });
+          }
+          if (deviceInfo.deviceId !== user.deviceInfo?.deviceId) {
+              return res.status(401).json({
+                  success: false,
+                  message: "DeviceId no válido para este fiscalizador"
+              });
+          }
+      }
 
-    // Actualizar último acceso
-    await user.update({
-      lastLogin: new Date(),
-      lastLoginIp: req.ip,
-      lastLoginDevice: req.headers["user-agent"]
-    });
+      // Obtener configuración específica del rol
+      const roleConfig = authConfig.roles[user.roles[0].name];
+      const tokenExpiration = roleConfig ? roleConfig.tokenExpiration : authConfig.jwtExpiration;
 
-    // Preparar respuesta base
-    const responseData = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      roles: user.roles.map(role => role.name),
-      requiresDeviceInfo: user.isFiscalizador(),
-      platform
-    };
+      const token = jwt.sign(
+          { 
+              id: user.id,
+              roles: user.roles.map(role => role.name),
+              platform
+          },
+          authConfig.secret,
+          { expiresIn: tokenExpiration }
+      );
 
-    if (isMobilePlatform) {
-      // Para plataformas móviles, enviar el token en el cuerpo de la respuesta
-      return res.status(200).json({
-        success: true,
-        data: {
-          ...responseData,
-          accessToken: token,
-          expiresIn: tokenExpiration
-        }
-      });
-    } else {
-      // Para web, establecer cookie segura
-      res.cookie('auth_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: tokenExpiration * 1000,
-        path: '/'
+      // Actualizar último acceso
+      await user.update({
+          lastLogin: new Date(),
+          lastLoginIp: req.ip,
+          lastLoginDevice: req.headers["user-agent"]
       });
 
-      return res.status(200).json({
-        success: true,
-        data: responseData
-      });
-    }
+      // Preparar respuesta base
+      const responseData = {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          roles: user.roles.map(role => role.name),
+          requiresDeviceInfo: user.isFiscalizador(),
+          platform
+      };
+
+      if (isMobilePlatform) {
+          return res.status(200).json({
+              success: true,
+              data: {
+                  ...responseData,
+                  accessToken: token,
+                  expiresIn: tokenExpiration
+              }
+          });
+      } else {
+          res.cookie('auth_token', token, {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'strict',
+              maxAge: tokenExpiration * 1000,
+              path: '/'
+          });
+
+          return res.status(200).json({
+              success: true,
+              data: responseData
+          });
+      }
   } catch (error) {
-    console.error("Error en signin:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error al iniciar sesión",
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+      console.error("Error en signin:", error);
+      res.status(500).json({
+          success: false,
+          message: "Error al iniciar sesión",
+          error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
   }
 };
 
+// signout se mantiene exactamente igual
 export const signout = async (req, res) => {
   try {
-    const platform = req.user?.platform || getPlatformFromRequest(req);
-    const isMobilePlatform = platform === 'android' || platform === 'ios';
-    
-    if (isMobilePlatform) {
-      // Para plataformas móviles, solo necesitamos responder con éxito
-      return res.status(200).json({
-        success: true,
-        message: "Sesión cerrada exitosamente"
-      });
-    } else {
-      // Para web, limpiar la cookie
-      res.clearCookie('auth_token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/'
-      });
+      const platform = req.user?.platform || getPlatformFromRequest(req);
+      const isMobilePlatform = platform === 'android' || platform === 'ios';
       
-      return res.status(200).json({
-        success: true,
-        message: "Sesión cerrada exitosamente"
-      });
-    }
+      if (isMobilePlatform) {
+          return res.status(200).json({
+              success: true,
+              message: "Sesión cerrada exitosamente"
+          });
+      } else {
+          res.clearCookie('auth_token', {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'strict',
+              path: '/'
+          });
+          
+          return res.status(200).json({
+              success: true,
+              message: "Sesión cerrada exitosamente"
+          });
+      }
   } catch (error) {
-    console.error("Error en signout:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error al cerrar sesión"
-    });
+      console.error("Error en signout:", error);
+      res.status(500).json({
+          success: false,
+          message: "Error al cerrar sesión"
+      });
   }
 };
-

@@ -1,3 +1,5 @@
+import bcrypt from 'bcrypt';
+
 export default (sequelize, Sequelize) => {
     const User = sequelize.define("users", {
         id: {
@@ -37,10 +39,10 @@ export default (sequelize, Sequelize) => {
                 isValidDeviceInfo(value) {
                     if (value) {
                         if (!value.deviceId || typeof value.deviceId !== 'string') {
-                            throw new Error('deviceInfo debe contener un deviceId válido');
+                            throw new Error('DEVICE_ID_REQUIRED');
                         }
                         if (!value.platform || !['android', 'ios'].includes(value.platform)) {
-                            throw new Error('Plataforma no válida');
+                            throw new Error('INVALID_PLATFORM');
                         }
                     }
                 }
@@ -66,17 +68,25 @@ export default (sequelize, Sequelize) => {
     }, {
         hooks: {
             beforeValidate: async (user) => {
-                if (user.isFiscalizador() && (!user.deviceInfo?.deviceId)) {
-                    throw new Error('Los fiscalizadores deben registrar un dispositivo');
+                // Obtener roles actuales si existen
+                const currentRoles = user.roles?.map(role => role.name) || [];
+                
+                // Verificar si es fiscalizador
+                if (currentRoles.includes('fiscalizador')) {
+                    if (!user.deviceInfo?.deviceId) {
+                        throw new Error('FISCALIZADOR_REQUIRES_DEVICE');
+                    }
                 }
-                if (user.isAdmin() && user.deviceInfo) {
-                    throw new Error('Los administradores no deben tener dispositivo registrado');
+                
+                // Verificar si es admin
+                if (currentRoles.includes('admin') && user.deviceInfo) {
+                    throw new Error('ADMIN_CANNOT_HAVE_DEVICE');
                 }
             }
         }
     });
 
-    // Métodos mejorados
+    // Métodos de instancia
     User.prototype.isFiscalizador = function() {
         return this.roles?.some(role => role.name === 'fiscalizador') || false;
     };
