@@ -73,22 +73,7 @@ export default (sequelize, Sequelize) => {
                     throw new Error('Los administradores no deben tener dispositivo registrado');
                 }
             }
-        },
-        indexes: [
-            {
-                name: 'device_id_unique',
-                fields: [sequelize.literal("(JSON_UNQUOTE(JSON_EXTRACT(deviceInfo, '$.deviceId')))")],
-                unique: true,
-                where: {
-                    deviceInfo: {
-                        [Sequelize.Op.ne]: null
-                    }
-                }
-            },
-            {
-                fields: ['isActive']
-            }
-        ]
+        }
     });
 
     // Métodos mejorados
