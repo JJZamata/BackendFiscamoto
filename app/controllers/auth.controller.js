@@ -2,30 +2,31 @@ import db from "../models/index.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import authConfig from "../config/auth.config.js";
+import { getPlatformFromRequest } from "../utils/platformDetector.js";
 
 const { user: User, role: Role } = db;
 
 export const signup = async (req, res) => {
   try {
-    const { username, email, password, roles, imei } = req.body;
+    const { username, email, password, roles, deviceInfo } = req.body;
 
     // Verificación específica para fiscalizadores
     const isFiscalizador = roles.includes('fiscalizador');
-    if (isFiscalizador && !imei) {
+    if (isFiscalizador && (!deviceInfo || !deviceInfo.deviceId)) {
       return res.status(400).json({
         success: false,
-        message: "Los fiscalizadores deben proporcionar un IMEI",
-        field: "imei"
+        message: "Los fiscalizadores deben proporcionar un deviceInfo con deviceId",
+        field: "deviceInfo"
       });
     }
 
     // Verificación para administradores
     const isAdmin = roles.includes('admin');
-    if (isAdmin && imei) {
+    if (isAdmin && deviceInfo) {
       return res.status(400).json({
         success: false,
-        message: "Los administradores no deben tener IMEI",
-        field: "imei"
+        message: "Los administradores no deben tener deviceInfo",
+        field: "deviceInfo"
       });
     }
 
@@ -34,7 +35,7 @@ export const signup = async (req, res) => {
       username,
       email,
       password: await bcrypt.hash(password, 10),
-      imei: isFiscalizador ? imei : null
+      deviceInfo: isFiscalizador ? deviceInfo : null
     });
 
     // Asignación de roles
@@ -77,8 +78,9 @@ export const signup = async (req, res) => {
 
 export const signin = async (req, res) => {
   try {
-    const { username, password, imei, clientType } = req.body;
-    const isMobileClient = clientType === 'mobile';
+    const { username, password, deviceInfo } = req.body;
+    const platform = getPlatformFromRequest(req);
+    const isMobilePlatform = platform === 'android' || platform === 'ios';
 
     const user = await User.findOne({
       where: { username },
@@ -107,18 +109,18 @@ export const signin = async (req, res) => {
       });
     }
 
-    // Verificar IMEI para fiscalizadores
+    // Verificar deviceInfo para fiscalizadores
     if (user.isFiscalizador()) {
-      if (!imei) {
+      if (!deviceInfo || !deviceInfo.deviceId) {
         return res.status(400).json({
           success: false,
-          message: "Se requiere el IMEI del dispositivo para fiscalizadores"
+          message: "Se requiere el deviceInfo con deviceId para fiscalizadores"
         });
       }
-      if (imei !== user.imei) {
+      if (deviceInfo.deviceId !== user.deviceInfo?.deviceId) {
         return res.status(401).json({
           success: false,
-          message: "IMEI no válido para este fiscalizador"
+          message: "DeviceId no válido para este fiscalizador"
         });
       }
     }
@@ -131,7 +133,7 @@ export const signin = async (req, res) => {
       { 
         id: user.id,
         roles: user.roles.map(role => role.name),
-        clientType: isMobileClient ? 'mobile' : 'web'
+        platform
       },
       authConfig.secret,
       { expiresIn: tokenExpiration }
@@ -150,11 +152,12 @@ export const signin = async (req, res) => {
       username: user.username,
       email: user.email,
       roles: user.roles.map(role => role.name),
-      requiresImei: user.isFiscalizador()
+      requiresDeviceInfo: user.isFiscalizador(),
+      platform
     };
 
-    if (isMobileClient) {
-      // Para clientes móviles, enviar el token en el cuerpo de la respuesta
+    if (isMobilePlatform) {
+      // Para plataformas móviles, enviar el token en el cuerpo de la respuesta
       return res.status(200).json({
         success: true,
         data: {
@@ -164,12 +167,12 @@ export const signin = async (req, res) => {
         }
       });
     } else {
-      // Para clientes web, establecer cookie segura
+      // Para web, establecer cookie segura
       res.cookie('auth_token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: tokenExpiration * 1000, // Convertir a milisegundos
+        maxAge: tokenExpiration * 1000,
         path: '/'
       });
 
@@ -190,10 +193,11 @@ export const signin = async (req, res) => {
 
 export const signout = async (req, res) => {
   try {
-    const clientType = req.user?.clientType || req.body.clientType;
+    const platform = req.user?.platform || getPlatformFromRequest(req);
+    const isMobilePlatform = platform === 'android' || platform === 'ios';
     
-    if (clientType === 'mobile') {
-      // Para móvil, solo necesitamos responder con éxito
+    if (isMobilePlatform) {
+      // Para plataformas móviles, solo necesitamos responder con éxito
       return res.status(200).json({
         success: true,
         message: "Sesión cerrada exitosamente"

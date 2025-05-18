@@ -4,7 +4,7 @@ import { signup, signin, signout } from "../controllers/auth.controller.js";
 import {
   checkDuplicateUsernameOrEmail,
   checkRolesExisted,
-  checkDuplicateImei,
+  checkDuplicateDeviceInfo,
   validateRequest
 } from "../middlewares/verifySignUp.js";
 import { verifyToken } from "../middlewares/authJwt.js";
@@ -42,15 +42,19 @@ const signupValidation = [
     })
     .withMessage('Los roles válidos son: admin, fiscalizador'),
   
-  body('imei')
+  body('deviceInfo')
     .if(body('roles').custom(roles => roles.includes('fiscalizador')))
-    .notEmpty().withMessage('IMEI es requerido para fiscalizadores')
-    .isLength({ min: 15, max: 15 }).withMessage('IMEI debe tener 15 dígitos')
-    .isNumeric().withMessage('IMEI debe ser numérico'),
+    .notEmpty().withMessage('deviceInfo es requerido para fiscalizadores')
+    .custom((value) => {
+      if (!value || typeof value !== 'object' || !value.deviceId) {
+        throw new Error('deviceInfo debe contener un deviceId válido');
+      }
+      return true;
+    }),
   
-  body('imei')
+  body('deviceInfo')
     .if(body('roles').custom(roles => !roles.includes('fiscalizador')))
-    .isEmpty().withMessage('IMEI no debe ser proporcionado para este rol'),
+    .isEmpty().withMessage('deviceInfo no debe ser proporcionado para este rol'),
   
   validateRequest
 ];
@@ -66,16 +70,19 @@ const signinValidation = [
     .notEmpty()
     .withMessage('La contraseña es requerida'),
   
-  body('clientType')
-    .isIn(['web', 'mobile'])
-    .withMessage('El tipo de cliente debe ser "web" o "mobile"'),
-  
-  body('imei')
+  body('platform')
     .optional()
-    .isLength({ min: 15, max: 15 })
-    .withMessage('El IMEI debe tener 15 dígitos')
-    .isNumeric()
-    .withMessage('El IMEI debe contener solo números'),
+    .isIn(['android', 'ios', 'web'])
+    .withMessage('La plataforma debe ser "android", "ios" o "web"'),
+  
+  body('deviceInfo')
+    .optional()
+    .custom((value) => {
+      if (value && (!value.deviceId || typeof value.deviceId !== 'string')) {
+        throw new Error('deviceInfo debe contener un deviceId válido');
+      }
+      return true;
+    }),
   
   validateRequest
 ];
@@ -83,7 +90,7 @@ const signinValidation = [
 // Rutas de autenticación
 router.post("/signup", 
   signupValidation,
-  [checkDuplicateUsernameOrEmail, checkRolesExisted,checkDuplicateImei], 
+  [checkDuplicateUsernameOrEmail, checkRolesExisted, checkDuplicateDeviceInfo], 
   signup
 );
 

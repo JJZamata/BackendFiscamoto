@@ -46,13 +46,13 @@ export const checkDuplicateUsernameOrEmail = async (req, res, next) => {
   }
 };
 
-export const checkDuplicateImei = async (req, res, next) => {
-  // Solo validar IMEI si es fiscalizador
-  if (req.body.roles && req.body.roles.includes('fiscalizador') && req.body.imei) {
+export const checkDuplicateDeviceInfo = async (req, res, next) => {
+  // Solo validar deviceInfo si es fiscalizador
+  if (req.body.roles && req.body.roles.includes('fiscalizador') && req.body.deviceInfo?.deviceId) {
     try {
       const existingUser = await db.user.findOne({ 
         where: { 
-          imei: req.body.imei,
+          'deviceInfo.deviceId': req.body.deviceInfo.deviceId,
           // Opcional: excluir al propio usuario si es actualización
           [db.Sequelize.Op.not]: { id: req.params.id || null }
         }
@@ -61,8 +61,8 @@ export const checkDuplicateImei = async (req, res, next) => {
       if (existingUser) {
         return res.status(400).json({
           success: false,
-          message: "El IMEI ya está registrado para otro fiscalizador",
-          field: "imei",
+          message: "El deviceId ya está registrado para otro fiscalizador",
+          field: "deviceInfo",
           existingUser: {
             username: existingUser.username,
             email: existingUser.email
@@ -70,10 +70,10 @@ export const checkDuplicateImei = async (req, res, next) => {
         });
       }
     } catch (error) {
-      console.error("Error en checkDuplicateImei:", error);
+      console.error("Error en checkDuplicateDeviceInfo:", error);
       return res.status(500).json({
         success: false,
-        message: "Error al verificar IMEI"
+        message: "Error al verificar deviceInfo"
       });
     }
   }

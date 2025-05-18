@@ -1,11 +1,13 @@
 import jwt from "jsonwebtoken";
 import db from "../models/index.js";
 import authConfig from "../config/auth.config.js";
+import { getPlatformFromRequest } from "../utils/platformDetector.js";
+
 const { user: User, role: Role } = db;
 
 export const verifyToken = async (req, res, next) => {
   let token = null;
-  let clientType = 'web';
+  let platform = 'web';
 
   // Intentar obtener el token de la cookie primero (para web)
   if (req.cookies && req.cookies.auth_token) {
@@ -16,7 +18,7 @@ export const verifyToken = async (req, res, next) => {
     const authHeader = (req.headers["authorization"] || '').trim();
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
-      clientType = 'mobile';
+      platform = getPlatformFromRequest(req);
     }
   }
 
@@ -37,16 +39,16 @@ export const verifyToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, authConfig.secret);
     
-    // Verificar que el tipo de cliente coincida
-    if (decoded.clientType !== clientType) {
+    // Verificar que la plataforma coincida
+    if (decoded.platform !== platform) {
       return res.status(403).json({
         success: false,
-        message: "Tipo de cliente no válido para este token"
+        message: "Plataforma no válida para este token"
       });
     }
 
     req.userId = decoded.id;
-    req.clientType = clientType;
+    req.platform = platform;
     
     const user = await User.findByPk(req.userId, {
       include: [{
@@ -69,19 +71,28 @@ export const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Verificar IMEI para fiscalizadores
+    // Verificar deviceInfo para fiscalizadores
     if (user.isFiscalizador()) {
-      const imei = req.headers["x-device-imei"];
-      if (!imei) {
+      const deviceInfo = req.headers["x-device-info"];
+      if (!deviceInfo) {
         return res.status(403).json({ 
           success: false,
-          message: "Se requiere el IMEI del dispositivo para fiscalizadores" 
+          message: "Se requiere el deviceInfo del dispositivo para fiscalizadores" 
         });
       }
-      if (imei !== user.imei) {
-        return res.status(403).json({ 
+
+      try {
+        const parsedDeviceInfo = JSON.parse(deviceInfo);
+        if (!parsedDeviceInfo.deviceId || parsedDeviceInfo.deviceId !== user.deviceInfo?.deviceId) {
+          return res.status(403).json({ 
+            success: false,
+            message: "DeviceId no válido para este fiscalizador" 
+          });
+        }
+      } catch (error) {
+        return res.status(400).json({
           success: false,
-          message: "IMEI no válido para este fiscalizador" 
+          message: "Formato de deviceInfo inválido"
         });
       }
     }

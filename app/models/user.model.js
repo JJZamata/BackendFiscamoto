@@ -34,17 +34,15 @@ export default (sequelize, Sequelize) => {
             type: Sequelize.STRING,
             allowNull: false
         },
-        imei: {
-            type: Sequelize.STRING(15),
+        deviceInfo: {
+            type: Sequelize.JSONB,
             allowNull: true,
             unique: true,
             validate: {
-                len: {
-                    args: [15, 15],
-                    msg: 'El IMEI debe tener exactamente 15 dígitos'
-                },
-                isNumeric: {
-                    msg: 'El IMEI debe contener solo números'
+                isValidDeviceInfo(value) {
+                    if (value && (!value.deviceId || typeof value.deviceId !== 'string')) {
+                        throw new Error('El deviceInfo debe contener un deviceId válido');
+                    }
                 }
             }
         },
@@ -68,16 +66,16 @@ export default (sequelize, Sequelize) => {
     }, {
         hooks: {
             beforeValidate: async (user) => {
-                // Validar que los fiscalizadores tengan IMEI
+                // Validar que los fiscalizadores tengan deviceInfo
                 if (user.roles && user.roles.some(role => role.name === 'fiscalizador')) {
-                    if (!user.imei) {
-                        throw new Error('Los fiscalizadores deben tener un IMEI registrado');
+                    if (!user.deviceInfo || !user.deviceInfo.deviceId) {
+                        throw new Error('Los fiscalizadores deben tener un deviceInfo con deviceId registrado');
                     }
                 }
-                // Validar que los administradores no tengan IMEI
+                // Validar que los administradores no tengan deviceInfo
                 if (user.roles && user.roles.some(role => role.name === 'admin')) {
-                    if (user.imei) {
-                        throw new Error('Los administradores no deben tener IMEI registrado');
+                    if (user.deviceInfo) {
+                        throw new Error('Los administradores no deben tener deviceInfo registrado');
                     }
                 }
             }
@@ -94,8 +92,8 @@ export default (sequelize, Sequelize) => {
         return this.roles && this.roles.some(role => role.name === 'admin');
     };
 
-    // Método de instancia para verificar si el usuario requiere IMEI
-    User.prototype.requiresImei = function() {
+    // Método de instancia para verificar si el usuario requiere deviceInfo
+    User.prototype.requiresDeviceInfo = function() {
         return this.isFiscalizador();
     };
 

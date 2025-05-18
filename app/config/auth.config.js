@@ -7,12 +7,12 @@ export default {
   roles: {
     admin: {
       tokenExpiration: 3600, // 1 hora para admin
-      requiresImei: false,
+      requiresDeviceInfo: false,
       allowedOrigins: process.env.ADMIN_ALLOWED_ORIGINS ? process.env.ADMIN_ALLOWED_ORIGINS.split(',') : ['http://localhost:5173']
     },
     fiscalizador: {
       tokenExpiration: 7200, // 2 horas para fiscalizador
-      requiresImei: true,
+      requiresDeviceInfo: true,
       allowedOrigins: process.env.FISCALIZADOR_ALLOWED_ORIGINS ? process.env.FISCALIZADOR_ALLOWED_ORIGINS.split(',') : ['capacitor://localhost']
     }
   },
