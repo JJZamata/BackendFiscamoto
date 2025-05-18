@@ -51,11 +51,9 @@ export const checkDuplicateDeviceInfo = async (req, res, next) => {
   if (req.body.roles && req.body.roles.includes('fiscalizador') && req.body.deviceInfo?.deviceId) {
     try {
       const existingUser = await db.user.findOne({ 
-        where: { 
-          'deviceInfo.deviceId': req.body.deviceInfo.deviceId,
-          // Opcional: excluir al propio usuario si es actualización
-          [db.Sequelize.Op.not]: { id: req.params.id || null }
-        }
+        where: db.sequelize.literal(`JSON_UNQUOTE(JSON_EXTRACT(deviceInfo, '$.deviceId')) = '${req.body.deviceInfo.deviceId}'`),
+        // Opcional: excluir al propio usuario si es actualización
+        ...(req.params.id ? { id: { [db.Sequelize.Op.ne]: req.params.id } } : {})
       });
 
       if (existingUser) {

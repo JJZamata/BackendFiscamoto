@@ -35,7 +35,7 @@ export default (sequelize, Sequelize) => {
             allowNull: false
         },
         deviceInfo: {
-            type: Sequelize.JSONB,
+            type: Sequelize.JSON,
             allowNull: true,
             unique: true,
             validate: {

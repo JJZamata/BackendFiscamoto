@@ -33,7 +33,7 @@ const corsOptions = {
   },
   credentials: true, // Permitir cookies en solicitudes CORS
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-IMEI']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-DeviceInfo']
 };
 
 // Middleware de seguridad y configuración
