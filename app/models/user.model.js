@@ -10,14 +10,8 @@ export default (sequelize, Sequelize) => {
             allowNull: false,
             unique: true,
             validate: {
-                len: {
-                    args: [3, 20],
-                    msg: 'El nombre de usuario debe tener entre 3 y 20 caracteres'
-                },
-                is: {
-                    args: /^[a-zA-Z0-9_]+$/,
-                    msg: 'El nombre de usuario solo puede contener letras, números y guiones bajos'
-                }
+                len: [3, 20],
+                is: /^[a-zA-Z0-9_]+$/
             }
         },
         email: {
@@ -25,23 +19,29 @@ export default (sequelize, Sequelize) => {
             allowNull: false,
             unique: true,
             validate: {
-                isEmail: {
-                    msg: 'Debe proporcionar un email válido'
-                }
+                isEmail: true
             }
         },
         password: {
             type: Sequelize.STRING,
-            allowNull: false
+            allowNull: false,
+            set(value) {
+                const hash = bcrypt.hashSync(value, 10);
+                this.setDataValue('password', hash);
+            }
         },
         deviceInfo: {
             type: Sequelize.JSON,
             allowNull: true,
-            unique: true,
             validate: {
                 isValidDeviceInfo(value) {
-                    if (value && (!value.deviceId || typeof value.deviceId !== 'string')) {
-                        throw new Error('El deviceInfo debe contener un deviceId válido');
+                    if (value) {
+                        if (!value.deviceId || typeof value.deviceId !== 'string') {
+                            throw new Error('deviceInfo debe contener un deviceId válido');
+                        }
+                        if (!value.platform || !['android', 'ios'].includes(value.platform)) {
+                            throw new Error('Plataforma no válida');
+                        }
                     }
                 }
             }
@@ -56,45 +56,52 @@ export default (sequelize, Sequelize) => {
             allowNull: true
         },
         lastLoginIp: {
-            type: Sequelize.STRING,
+            type: Sequelize.STRING(45),
             allowNull: true
         },
         lastLoginDevice: {
-            type: Sequelize.STRING,
+            type: Sequelize.TEXT,
             allowNull: true
         }
     }, {
         hooks: {
             beforeValidate: async (user) => {
-                // Validar que los fiscalizadores tengan deviceInfo
-                if (user.roles && user.roles.some(role => role.name === 'fiscalizador')) {
-                    if (!user.deviceInfo || !user.deviceInfo.deviceId) {
-                        throw new Error('Los fiscalizadores deben tener un deviceInfo con deviceId registrado');
-                    }
+                if (user.isFiscalizador() && (!user.deviceInfo?.deviceId)) {
+                    throw new Error('Los fiscalizadores deben registrar un dispositivo');
                 }
-                // Validar que los administradores no tengan deviceInfo
-                if (user.roles && user.roles.some(role => role.name === 'admin')) {
-                    if (user.deviceInfo) {
-                        throw new Error('Los administradores no deben tener deviceInfo registrado');
-                    }
+                if (user.isAdmin() && user.deviceInfo) {
+                    throw new Error('Los administradores no deben tener dispositivo registrado');
                 }
             }
-        }
+        },
+        indexes: [
+            {
+                name: 'device_id_unique',
+                fields: [sequelize.literal("(JSON_UNQUOTE(JSON_EXTRACT(deviceInfo, '$.deviceId')))")],
+                unique: true,
+                where: {
+                    deviceInfo: {
+                        [Sequelize.Op.ne]: null
+                    }
+                }
+            },
+            {
+                fields: ['isActive']
+            }
+        ]
     });
 
-    // Método de instancia para verificar si el usuario es fiscalizador
+    // Métodos mejorados
     User.prototype.isFiscalizador = function() {
-        return this.roles && this.roles.some(role => role.name === 'fiscalizador');
+        return this.roles?.some(role => role.name === 'fiscalizador') || false;
     };
 
-    // Método de instancia para verificar si el usuario es administrador
     User.prototype.isAdmin = function() {
-        return this.roles && this.roles.some(role => role.name === 'admin');
+        return this.roles?.some(role => role.name === 'admin') || false;
     };
 
-    // Método de instancia para verificar si el usuario requiere deviceInfo
-    User.prototype.requiresDeviceInfo = function() {
-        return this.isFiscalizador();
+    User.prototype.verifyPassword = function(password) {
+        return bcrypt.compareSync(password, this.password);
     };
 
     return User;
