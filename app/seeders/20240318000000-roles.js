@@ -17,14 +17,14 @@ export const up = async () => {
             {
                 name: 'admin',
                 description: 'Administrador del sistema con acceso web',
-                requiresImei: false,
+                requiresDeviceInfo: false,
                 createdAt: new Date(),
                 updatedAt: new Date()
             },
             {
                 name: 'fiscalizador',
                 description: 'Fiscalizador con acceso móvil',
-                requiresImei: true,
+                requiresDeviceInfo: true,
                 createdAt: new Date(),
                 updatedAt: new Date()
             }

@@ -20,7 +20,7 @@ export default (sequelize, Sequelize) => {
             type: Sequelize.STRING,
             allowNull: true
         },
-        requiresImei: {
+        requiresDeviceInfo: {
             type: Sequelize.BOOLEAN,
             allowNull: false,
             defaultValue: false
@@ -33,12 +33,12 @@ export default (sequelize, Sequelize) => {
             {
                 name: 'admin',
                 description: 'Administrador del sistema con acceso web',
-                requiresImei: false
+                requiresDeviceInfo: false
             },
             {
                 name: 'fiscalizador',
                 description: 'Fiscalizador con acceso móvil',
-                requiresImei: true
+                requiresDeviceInfo: true
             }
         ];
 
