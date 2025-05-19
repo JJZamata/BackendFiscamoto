@@ -84,7 +84,11 @@ export const verifyToken = async (req, res, next) => {
 
       try {
         const parsedDeviceInfo = JSON.parse(deviceInfo);
-        if (!parsedDeviceInfo.deviceId || parsedDeviceInfo.deviceId !== user.deviceInfo?.deviceId) {
+        const userDeviceInfo = typeof user.deviceInfo === 'string' 
+          ? JSON.parse(user.deviceInfo) 
+          : user.deviceInfo;
+        
+        if (!parsedDeviceInfo.deviceId || parsedDeviceInfo.deviceId !== userDeviceInfo?.deviceId) {
           return res.status(403).json({ 
             success: false,
             message: "DeviceId no válido para este fiscalizador" 

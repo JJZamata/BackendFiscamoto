@@ -105,8 +105,9 @@ export const signin = async (req, res) => {
       let platform = getPlatformFromRequest(req);
       
       // Si es móvil, validar deviceInfo
-      if (platform === 'android' || platform === 'ios') {
-          if (!deviceInfo || !deviceInfo.deviceId) {
+      const isMobile = ['android', 'ios'].includes(platform);
+      if (isMobile) {
+          if (!deviceInfo || !deviceInfo.deviceId) {  // Corregido el typo de deviceId
               return res.status(400).json({
                   success: false,
                   message: "Se requiere deviceInfo para plataformas móviles"
@@ -137,7 +138,7 @@ export const signin = async (req, res) => {
           });
       }
 
-      // Usamos el método del modelo para verificar la contraseña
+      // Verificar contraseña
       const passwordIsValid = user.verifyPassword(password);
       if (!passwordIsValid) {
           return res.status(401).json({
@@ -148,29 +149,45 @@ export const signin = async (req, res) => {
 
       // Verificación de deviceInfo para fiscalizadores
       if (user.isFiscalizador()) {
-          if (platform === 'web') {
+          console.log('User deviceInfo:', user.deviceInfo);
+          
+          // Parsear deviceInfo si es string
+          const userDeviceInfo = typeof user.deviceInfo === 'string' 
+              ? JSON.parse(user.deviceInfo) 
+              : user.deviceInfo || {};
+          
+          if (!isMobile) {
               return res.status(403).json({
                   success: false,
-                  message: "Los fiscalizadores no pueden acceder desde web"
+                  message: "Los fiscalizadores solo pueden acceder desde aplicaciones móviles"
               });
           }
-          
+
           if (!deviceInfo || !deviceInfo.deviceId) {
               return res.status(400).json({
                   success: false,
-                  message: "Se requiere el deviceInfo con deviceId para fiscalizadores"
+                  message: "Se requiere información del dispositivo para fiscalizadores",
+                  requiredFields: {
+                      deviceInfo: {
+                          deviceId: "string",
+                          platform: "'android' o 'ios'"
+                      }
+                  }
               });
           }
-          
-          if (deviceInfo.deviceId !== user.deviceInfo?.deviceId) {
-              return res.status(401).json({
+
+          console.log('Request deviceId:', deviceInfo.deviceId);
+          console.log('Stored deviceId:', userDeviceInfo.deviceId);
+
+          if (deviceInfo.deviceId !== userDeviceInfo.deviceId) {
+              return res.status(403).json({
                   success: false,
-                  message: "DeviceId no válido para este fiscalizador"
+                  message: "Dispositivo no autorizado para este usuario"
               });
           }
       }
 
-      // Obtener configuración específica del rol
+      // Configuración del token
       const roleConfig = authConfig.roles[user.roles[0].name];
       const tokenExpiration = roleConfig ? roleConfig.tokenExpiration : authConfig.jwtExpiration;
 
@@ -191,7 +208,7 @@ export const signin = async (req, res) => {
           lastLoginDevice: req.headers["user-agent"]
       });
 
-      // Preparar respuesta base
+      // Preparar respuesta
       const responseData = {
           id: user.id,
           username: user.username,
@@ -201,7 +218,8 @@ export const signin = async (req, res) => {
           platform
       };
 
-      if (isMobilePlatform) {
+      // Respuesta diferente para móvil vs web
+      if (isMobile) {  // Usamos la variable isMobile ya definida
           return res.status(200).json({
               success: true,
               data: {

@@ -33,24 +33,26 @@ export default (sequelize, Sequelize) => {
             }
         },
         deviceInfo: {
-            type: Sequelize.JSON,
+            type: Sequelize.JSON, // Asegúrate que es JSON y no STRING
             allowNull: true,
+            get() {
+                const rawValue = this.getDataValue('deviceInfo');
+                return typeof rawValue === 'string' ? JSON.parse(rawValue) : rawValue;
+            },
             validate: {
                 isValidDeviceInfo(value) {
-                    if (value) {
-                        if (!value.deviceId || typeof value.deviceId !== 'string') {
-                            throw new Error('DEVICE_ID_REQUIRED');
-                        }
-                        if (!value.platform || !['android', 'ios'].includes(value.platform)) {
-                            throw new Error('INVALID_PLATFORM');
-                        }
-                    } else if (this.isFiscalizador()) {
-                        // Fiscalizadores siempre deben tener deviceInfo b
-                        throw new Error('FISCALIZADOR_REQUIRES_DEVICE');
+                if (value) {
+                    const deviceData = typeof value === 'string' ? JSON.parse(value) : value;
+                    if (!deviceData.deviceId || typeof deviceData.deviceId !== 'string') {
+                    throw new Error('DEVICE_ID_REQUIRED');
+                    }
+                    if (!deviceData.platform || !['android', 'ios'].includes(deviceData.platform)) {
+                    throw new Error('INVALID_PLATFORM');
                     }
                 }
+                }
             }
-        },
+            },
         isActive: {
             type: Sequelize.BOOLEAN,
             allowNull: false,
