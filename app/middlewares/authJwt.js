@@ -40,12 +40,13 @@ export const verifyToken = async (req, res, next) => {
     const decoded = jwt.verify(token, authConfig.secret);
     
     // Verificar que la plataforma coincida
-    if (decoded.platform !== platform) {
-      return res.status(403).json({
-        success: false,
-        message: "Plataforma no válida para este token"
-      });
-    }
+    const requestPlatform = getPlatformFromRequest(req);
+        if (decoded.platform !== requestPlatform) {
+            return res.status(403).json({
+                success: false,
+                message: "Token no válido para esta plataforma"
+            });
+        }
 
     req.userId = decoded.id;
     req.platform = platform;

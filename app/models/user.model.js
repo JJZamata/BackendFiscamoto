@@ -44,6 +44,9 @@ export default (sequelize, Sequelize) => {
                         if (!value.platform || !['android', 'ios'].includes(value.platform)) {
                             throw new Error('INVALID_PLATFORM');
                         }
+                    } else if (this.isFiscalizador()) {
+                        // Fiscalizadores siempre deben tener deviceInfo b
+                        throw new Error('FISCALIZADOR_REQUIRES_DEVICE');
                     }
                 }
             }

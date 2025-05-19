@@ -100,8 +100,23 @@ export const signup = async (req, res) => {
 export const signin = async (req, res) => {
   try {
       const { username, password, deviceInfo } = req.body;
-      const platform = getPlatformFromRequest(req);
-      const isMobilePlatform = platform === 'android' || platform === 'ios';
+      
+      // Determinar plataforma de manera consistente
+      let platform = getPlatformFromRequest(req);
+      
+      // Si es móvil, validar deviceInfo
+      if (platform === 'android' || platform === 'ios') {
+          if (!deviceInfo || !deviceInfo.deviceId) {
+              return res.status(400).json({
+                  success: false,
+                  message: "Se requiere deviceInfo para plataformas móviles"
+              });
+          }
+          // Forzar plataforma desde deviceInfo si es móvil
+          if (deviceInfo.platform && ['android', 'ios'].includes(deviceInfo.platform)) {
+              platform = deviceInfo.platform;
+          }
+      }
 
       const user = await User.findOne({
           where: { username },
@@ -133,12 +148,20 @@ export const signin = async (req, res) => {
 
       // Verificación de deviceInfo para fiscalizadores
       if (user.isFiscalizador()) {
+          if (platform === 'web') {
+              return res.status(403).json({
+                  success: false,
+                  message: "Los fiscalizadores no pueden acceder desde web"
+              });
+          }
+          
           if (!deviceInfo || !deviceInfo.deviceId) {
               return res.status(400).json({
                   success: false,
                   message: "Se requiere el deviceInfo con deviceId para fiscalizadores"
               });
           }
+          
           if (deviceInfo.deviceId !== user.deviceInfo?.deviceId) {
               return res.status(401).json({
                   success: false,
