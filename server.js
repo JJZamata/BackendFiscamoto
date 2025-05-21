@@ -16,7 +16,7 @@ app.set('trust proxy', 1);
 // Configuración de CORS más restrictiva
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir solicitudes sin origen (como apps móviles)
+    // Permitir solicitudes sin origen (como apps móviles) - mejorar eso ojoojo
     if (!origin) return callback(null, true);
     
     // Obtener todos los orígenes permitidos de la configuración
@@ -25,7 +25,7 @@ const corsOptions = {
       ...authConfig.roles.fiscalizador.allowedOrigins
     ];
     
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
       callback(null, true);
     } else {
       callback(new Error('No permitido por CORS'));

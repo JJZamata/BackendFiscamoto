@@ -6,14 +6,18 @@ export default {
   // Configuraciones específicas por rol
   roles: {
     admin: {
-      tokenExpiration: 3600, // 1 hora para admin
+      tokenExpiration: 3600,
       requiresDeviceInfo: false,
-      allowedOrigins: process.env.ADMIN_ALLOWED_ORIGINS ? process.env.ADMIN_ALLOWED_ORIGINS.split(',') : ['http://localhost:3000']
+      allowedOrigins: process.env.ADMIN_ALLOWED_ORIGINS 
+        ? process.env.ADMIN_ALLOWED_ORIGINS.split(',') 
+        : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:3000'])
     },
     fiscalizador: {
-      tokenExpiration: 7200, // 2 horas para fiscalizador
+      tokenExpiration: 7200,
       requiresDeviceInfo: true,
-      allowedOrigins: process.env.FISCALIZADOR_ALLOWED_ORIGINS ? process.env.FISCALIZADOR_ALLOWED_ORIGINS.split(',') : ['capacitor://localhost']
+      allowedOrigins: process.env.FISCALIZADOR_ALLOWED_ORIGINS 
+        ? process.env.FISCALIZADOR_ALLOWED_ORIGINS.split(',') 
+        : (process.env.NODE_ENV === 'production' ? [] : ['capacitor://localhost'])
     }
   },
 

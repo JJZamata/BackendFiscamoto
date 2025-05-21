@@ -237,12 +237,13 @@ export const signin = async (req, res) => {
           });
       } else {
               res.cookie('auth_token', token, {
-                //configuracion momentanea para trabajar con localhost
-              //httpOnly: true,
-              secure: false,
-              sameSite: 'lax',
-              maxAge: tokenExpiration * 1000,
-          });
+                httpOnly: true, // Siempre activado (seguridad)
+                secure: process.env.NODE_ENV === 'production', // HTTPS solo en prod
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+                maxAge: tokenExpiration * 1000,
+                domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined,
+                path: '/'
+                });
 
           return res.status(200).json({
               success: true,

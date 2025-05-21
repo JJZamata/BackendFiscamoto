@@ -15,9 +15,9 @@ export default {
     idle: 10000//1 segundo para permanecer inactiva antes de ser liberada
   },
   dialectOptions: {
-    ssl: {
-      require: true, //pide si o si conexion SSL
-      rejectUnauthorized: false//conexion SSL con certificados no verificados
-    }
+    ssl: process.env.NODE_ENV === 'production' ? {
+      require: true,
+      rejectUnauthorized: false
+    } : {}
   }
 };
