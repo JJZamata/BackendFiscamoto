@@ -8,7 +8,7 @@ export default {
     admin: {
       tokenExpiration: 3600, // 1 hora para admin
       requiresDeviceInfo: false,
-      allowedOrigins: process.env.ADMIN_ALLOWED_ORIGINS ? process.env.ADMIN_ALLOWED_ORIGINS.split(',') : ['http://localhost:5173']
+      allowedOrigins: process.env.ADMIN_ALLOWED_ORIGINS ? process.env.ADMIN_ALLOWED_ORIGINS.split(',') : ['http://localhost:3000']
     },
     fiscalizador: {
       tokenExpiration: 7200, // 2 horas para fiscalizador

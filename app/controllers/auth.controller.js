@@ -163,6 +163,13 @@ export const signin = async (req, res) => {
               });
           }
 
+          if (!isMobile && !user.roles.some(role => role.name === 'admin')) {
+            return res.status(403).json({
+                success: false,
+                message: "Este portal es exclusivo para administradores"
+            });
+        }
+
           if (!deviceInfo || !deviceInfo.deviceId) {
               return res.status(400).json({
                   success: false,
@@ -229,12 +236,12 @@ export const signin = async (req, res) => {
               }
           });
       } else {
-          res.cookie('auth_token', token, {
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'strict',
+              res.cookie('auth_token', token, {
+                //configuracion momentanea para trabajar con localhost
+              //httpOnly: true,
+              secure: false,
+              sameSite: 'lax',
               maxAge: tokenExpiration * 1000,
-              path: '/'
           });
 
           return res.status(200).json({
@@ -266,9 +273,10 @@ export const signout = async (req, res) => {
       } else {
           res.clearCookie('auth_token', {
               httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'strict',
-              path: '/'
+              secure: false,
+              sameSite: 'lax',
+              path: '/',
+              domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : 'localhost'
           });
           
           return res.status(200).json({
