@@ -79,8 +79,8 @@ const signinValidation = [
 
 router.post("/signup", 
   signupValidation,
-  //verifyToken,  // ← PRIMERO verificar token
-  //isAdmin,      // ← DESPUÉS verificar si es admin
+  verifyToken,  // ← PRIMERO verificar token
+  isAdmin,      // ← DESPUÉS verificar si es admin
   [checkDuplicateUsernameOrEmail, checkRolesExisted, checkDuplicateDeviceInfo],
   signup
 );
