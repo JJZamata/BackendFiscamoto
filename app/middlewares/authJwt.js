@@ -41,12 +41,12 @@ export const verifyToken = async (req, res, next) => {
     
     // Verificar que la plataforma coincida
     const requestPlatform = getPlatformFromRequest(req);
-        if (decoded.platform !== requestPlatform) {
-            return res.status(403).json({
-                success: false,
-                message: "Token no válido para esta plataforma"
-            });
-        }
+    if (decoded.platform !== requestPlatform) {
+      return res.status(403).json({
+        success: false,
+        message: "Token no válido para esta plataforma"
+      });
+    }
 
     req.userId = decoded.id;
     req.platform = platform;
@@ -127,23 +127,68 @@ export const verifyToken = async (req, res, next) => {
 
 export const isAdmin = async (req, res, next) => {
   try {
-    if (!req.user.isAdmin()) {
+    // Verifica primero si existe el usuario en el request
+    if (!req.user) {
       return res.status(403).json({ 
         success: false,
-        message: "Se requiere el rol de administrador" 
+        message: "Usuario no autenticado",
+        code: "USER_NOT_AUTHENTICATED"
       });
     }
+
+    // Carga los roles si no están cargados
+    if (!req.user.roles || !req.user.roles.length) {
+      const userWithRoles = await User.findByPk(req.user.id, {
+        include: [{
+          model: Role,
+          as: 'roles'
+        }]
+      });
+      
+      if (!userWithRoles) {
+        return res.status(403).json({ 
+          success: false,
+          message: "Usuario no encontrado",
+          code: "USER_NOT_FOUND"
+        });
+      }
+      
+      req.user = userWithRoles;
+    }
+
+    // Verificación segura de roles
+    const isAdminUser = req.user.roles?.some?.(role => role.name === 'admin');
+    
+    if (!isAdminUser) {
+      return res.status(403).json({ 
+        success: false,
+        message: "Se requiere rol de administrador",
+        code: "ADMIN_ROLE_REQUIRED"
+      });
+    }
+
     next();
   } catch (error) {
+    console.error("Error en isAdmin middleware:", error);
     res.status(500).json({ 
       success: false,
-      message: "Error al verificar rol de administrador" 
+      message: "Error al verificar permisos",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      code: "ADMIN_CHECK_ERROR"
     });
   }
 };
 
 export const isFiscalizador = async (req, res, next) => {
   try {
+    if (!req.user) {
+      return res.status(403).json({ 
+        success: false,
+        message: "Usuario no autenticado",
+        code: "USER_NOT_AUTHENTICATED"
+      });
+    }
+
     if (!req.user.isFiscalizador()) {
       return res.status(403).json({ 
         success: false,
@@ -152,6 +197,7 @@ export const isFiscalizador = async (req, res, next) => {
     }
     next();
   } catch (error) {
+    console.error("Error en isFiscalizador middleware:", error);
     res.status(500).json({ 
       success: false,
       message: "Error al verificar rol de fiscalizador" 
@@ -161,6 +207,14 @@ export const isFiscalizador = async (req, res, next) => {
 
 export const isAdminOrFiscalizador = async (req, res, next) => {
   try {
+    if (!req.user) {
+      return res.status(403).json({ 
+        success: false,
+        message: "Usuario no autenticado",
+        code: "USER_NOT_AUTHENTICATED"
+      });
+    }
+
     if (!req.user.isAdmin() && !req.user.isFiscalizador()) {
       return res.status(403).json({ 
         success: false,
@@ -169,6 +223,7 @@ export const isAdminOrFiscalizador = async (req, res, next) => {
     }
     next();
   } catch (error) {
+    console.error("Error en isAdminOrFiscalizador middleware:", error);
     res.status(500).json({ 
       success: false,
       message: "Error al verificar roles" 

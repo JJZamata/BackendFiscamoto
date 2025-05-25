@@ -47,9 +47,15 @@ export const checkDuplicateUsernameOrEmail = async (req, res, next) => {
 };
 
 export const checkDuplicateDeviceInfo = async (req, res, next) => {
-  // Solo validar deviceInfo si es fiscalizador
-  if (req.body.roles && req.body.roles.includes('fiscalizador') && req.body.deviceInfo?.deviceId) {
-    try {
+  try {
+    // IMPORTANTE: En signup NO validamos deviceInfo porque no debe existir
+    if (req.method === 'POST' && req.path.includes('/signup')) {
+      // Para signup, simplemente continúa sin validar deviceInfo
+      return next();
+    }
+
+    // Solo validar deviceInfo si está presente (para login o actualización)
+    if (req.body.deviceInfo?.deviceId) {
       const existingUser = await db.user.findOne({ 
         where: db.sequelize.literal(`JSON_UNQUOTE(JSON_EXTRACT(deviceInfo, '$.deviceId')) = '${req.body.deviceInfo.deviceId}'`),
         // Opcional: excluir al propio usuario si es actualización
@@ -67,15 +73,16 @@ export const checkDuplicateDeviceInfo = async (req, res, next) => {
           }
         });
       }
-    } catch (error) {
-      console.error("Error en checkDuplicateDeviceInfo:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Error al verificar deviceInfo"
-      });
     }
+    
+    next();
+  } catch (error) {
+    console.error("Error en checkDuplicateDeviceInfo:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error al verificar deviceInfo"
+    });
   }
-  next();
 };
 
 export const checkRolesExisted = async (req, res, next) => {

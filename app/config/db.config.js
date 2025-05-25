@@ -11,7 +11,7 @@ export default {
   pool: {
     max: 5,//conexiones permitidas
     min: 0,//conexiones mantenidas
-    acquire: 30000,//3segundos para conectarse o error
+    acquire: 30000,//3 segundos para conectarse o error
     idle: 10000//1 segundo para permanecer inactiva antes de ser liberada
   },
   dialectOptions: {

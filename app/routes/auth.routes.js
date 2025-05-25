@@ -7,7 +7,7 @@ import {
   checkDuplicateDeviceInfo,
   validateRequest
 } from "../middlewares/verifySignUp.js";
-import { verifyToken } from "../middlewares/authJwt.js";
+import { verifyToken,isAdmin } from "../middlewares/authJwt.js";
 import { loginLimiter } from "../config/rateLimiter.config.js";
 
 const router = express.Router();
@@ -28,10 +28,10 @@ const signupValidation = [
     .normalizeEmail(),
   
   body('password')
-    .isLength({ min: 8 })
-    .withMessage('La contraseña debe tener al menos 8 caracteres')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
-    .withMessage('La contraseña debe contener al menos una letra mayúscula, una minúscula, un número y un carácter especial'),
+  .isLength({ min: 8 })
+  .withMessage('La contraseña debe tener al menos 8 caracteres')
+  .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[A-Za-z\d\S]{8,}$/)
+  .withMessage('La contraseña debe contener al menos una letra mayúscula, una minúscula, un número y un carácter especial'),
   
   body('roles')
     .isArray()
@@ -41,17 +41,7 @@ const signupValidation = [
       return roles.every(role => validRoles.includes(role));
     })
     .withMessage('Los roles válidos son: admin, fiscalizador'),
-  
-  body('deviceInfo')
-    .if(body('roles').custom(roles => roles.includes('fiscalizador')))
-    .notEmpty().withMessage('deviceInfo es requerido para fiscalizadores')
-    .custom((value) => {
-      if (!value || typeof value !== 'object' || !value.deviceId) {
-        throw new Error('deviceInfo debe contener un deviceId válido');
-      }
-      return true;
-    }),
-  
+
   body('deviceInfo')
     .if(body('roles').custom(roles => !roles.includes('fiscalizador')))
     .isEmpty().withMessage('deviceInfo no debe ser proporcionado para este rol'),
@@ -87,10 +77,11 @@ const signinValidation = [
   validateRequest
 ];
 
-// Rutas de autenticación
 router.post("/signup", 
   signupValidation,
-  [checkDuplicateUsernameOrEmail, checkRolesExisted, checkDuplicateDeviceInfo], 
+  verifyToken,  // ← PRIMERO verificar token
+  isAdmin,      // ← DESPUÉS verificar si es admin
+  [checkDuplicateUsernameOrEmail, checkRolesExisted, checkDuplicateDeviceInfo],
   signup
 );
 
