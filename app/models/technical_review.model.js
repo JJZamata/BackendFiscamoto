@@ -41,14 +41,6 @@ export default (sequelize, Sequelize) => {
                 }
             }
         },
-        status: {
-            type: Sequelize.ENUM('VÁLIDO', 'EXPIRADO'),
-            allowNull: false,
-            defaultValue: 'VÁLIDO',
-            validate: {
-                notEmpty: true
-            }
-        },
         inspectionResult: {
             type: Sequelize.ENUM('APROBADO', 'OBSERVADO'),
             allowNull: false,
@@ -80,20 +72,9 @@ export default (sequelize, Sequelize) => {
                 fields: ['expiration_date']
             },
             {
-                fields: ['status']
-            },
-            {
                 fields: ['inspection_result']
             }
         ],
-        hooks: {
-            beforeSave: async (review, options) => {
-                // Actualizar automáticamente el estado basado en la fecha
-                const today = new Date();
-                const expDate = new Date(review.expirationDate);
-                review.status = expDate >= today ? 'VÁLIDO' : 'EXPIRADO';
-            }
-        },
         getterMethods: {
             isExpired() {
                 return new Date() > this.expirationDate;
