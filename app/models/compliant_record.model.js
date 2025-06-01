@@ -1,4 +1,3 @@
-// models/compliant_record.model.js
 export default (sequelize, Sequelize) => {
     const CompliantRecord = sequelize.define("compliant_records", {
         id: {
@@ -17,6 +16,32 @@ export default (sequelize, Sequelize) => {
             validate: {
                 isInt: true,
                 min: 1
+            }
+        },
+        inspectorId: {
+            type: Sequelize.INTEGER,
+            allowNull: false,
+            field: 'inspector_id',
+            references: {
+                model: 'users',
+                key: 'id'
+            },
+            validate: {
+                isInt: true,
+                min: 1
+            }
+        },
+        licenseId: {
+            type: Sequelize.STRING(15),
+            allowNull: false,
+            field: 'license_id',
+            references: {
+                model: 'driving_licenses',
+                key: 'license_id'
+            },
+            validate: {
+                len: [5, 15],
+                notEmpty: true
             }
         },
         vehiclePlate: {
@@ -69,6 +94,12 @@ export default (sequelize, Sequelize) => {
             },
             {
                 fields: ['vehicle_plate']
+            },
+            {
+                fields: ['inspector_id'] // Índice para fiscalizador
+            },
+            {
+                fields: ['license_id'] // Índice para licencia
             },
             {
                 fields: ['inspection_date_time']

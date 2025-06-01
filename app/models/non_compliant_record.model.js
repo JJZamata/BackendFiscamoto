@@ -19,6 +19,19 @@ export default (sequelize, Sequelize) => {
                 min: 1
             }
         },
+        inspectorId: {
+            type: Sequelize.INTEGER,
+            allowNull: false,
+            field: 'inspector_id',
+            references: {
+                model: 'users',
+                key: 'id'
+            },
+            validate: {
+                isInt: true,
+                min: 1
+            }
+        },
         companyRuc: {
             type: Sequelize.STRING(11),
             allowNull: false,
@@ -47,7 +60,7 @@ export default (sequelize, Sequelize) => {
         },
         licenseId: {
             type: Sequelize.STRING(15),
-            allowNull: false,
+            allowNull: true,//ya que puede no haber licencia
             field: 'license_id',
             references: {
                 model: 'driving_licenses',
@@ -101,6 +114,9 @@ export default (sequelize, Sequelize) => {
             },
             {
                 fields: ['license_id']
+            },
+            {
+                fields: ['inspector_id']
             },
             {
                 fields: ['inspection_date_time']

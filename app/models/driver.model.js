@@ -1,4 +1,3 @@
-// models/driver.model.js
 export default (sequelize, Sequelize) => {
     const Driver = sequelize.define("drivers", {
         dni: {

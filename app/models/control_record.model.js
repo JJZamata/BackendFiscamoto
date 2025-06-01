@@ -1,4 +1,3 @@
-// models/control_record.model.js
 export default (sequelize, Sequelize) => {
     const ControlRecord = sequelize.define("control_records", {
         id: {
