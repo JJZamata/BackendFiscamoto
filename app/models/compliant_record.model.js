@@ -76,7 +76,7 @@ export default (sequelize, Sequelize) => {
         },
         s3FileUrl: {
             type: Sequelize.TEXT,
-            allowNull: false,
+            allowNull: true,
             field: 's3_file_url',
             validate: {
                 notEmpty: true,

@@ -38,9 +38,10 @@ export const verifyToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, authConfig.secret);
-    
+    console.log("Token decodificado:", decoded);
     // Verificar que la plataforma coincida
     const requestPlatform = getPlatformFromRequest(req);
+    console.log("Plataforma del request:", requestPlatform);  
     if (decoded.platform !== requestPlatform) {
       return res.status(403).json({
         success: false,

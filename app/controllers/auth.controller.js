@@ -1,10 +1,9 @@
 import db from "../models/index.js";
 import jwt from "jsonwebtoken";
 import authConfig from "../config/auth.config.js";
-import { getPlatformFromRequest } from "../utils/platformDetector.js";
+import { getPlatformFromRequest, getDeviceIdFromRequest } from "../utils/platformDetector.js";
 
 const { user: User, role: Role } = db;
-
 // Mapeo de errores a respuestas HTTP consistentes
 const ERROR_MAPPING = {
     'FISCALIZADOR_REQUIRES_DEVICE': {
@@ -154,26 +153,28 @@ export const signup = async (req, res) => {
  */
 export const signin = async (req, res) => {
   try {
-      const { username, password, deviceInfo } = req.body;
-      
-      // PASO 1: Detectar plataforma del request
-      // Prioridad: deviceInfo.platform > headers > user-agent
-      let platform = getPlatformFromRequest(req);
-      const isMobile = ['android', 'ios'].includes(platform);
-      
-      // PASO 2: Validar deviceInfo para plataformas móviles
-      if (isMobile) {
-          if (!deviceInfo || !deviceInfo.deviceId) {
-              return res.status(400).json({
-                  success: false,
-                  message: "Se requiere deviceInfo para plataformas móviles"
-              });
-          }
-          // Sobrescribir plataforma si viene en deviceInfo (más confiable)
-          if (deviceInfo.platform && ['android', 'ios'].includes(deviceInfo.platform)) {
-              platform = deviceInfo.platform;
-          }
+    const { username, password } = req.body; // Solo username y password
+    
+    // Obtener información de plataforma y dispositivo desde headers
+    const platform = getPlatformFromRequest(req);
+    const deviceId = getDeviceIdFromRequest(req);
+    
+    const isMobile = ['android', 'ios'].includes(platform);
+    const deviceInfo = {
+      deviceId,
+      platform,
+      deviceName: req.headers['x-device-name'] || `Dispositivo ${platform}`
+    };
+
+    // Validación para fiscalizadores
+    if (isMobile) {
+      if (!deviceId) {
+        return res.status(400).json({
+          success: false,
+          message: "Se requiere el header X-Device-Id para plataformas móviles"
+        });
       }
+    }
 
       // PASO 3: Buscar usuario con sus roles
       const user = await User.findOne({
@@ -251,11 +252,7 @@ export const signin = async (req, res) => {
               try {
                   console.log(`Primer login del fiscalizador ${username}, configurando dispositivo:`, deviceInfo);
                   
-                  await user.configureDevice({
-                      deviceId: deviceInfo.deviceId,
-                      platform: deviceInfo.platform || platform,
-                      deviceName: deviceInfo.deviceName || `Dispositivo ${platform}`
-                  });
+                  await user.configureDevice(deviceInfo);
                   
                   console.log('Dispositivo configurado exitosamente para:', username);
                   
