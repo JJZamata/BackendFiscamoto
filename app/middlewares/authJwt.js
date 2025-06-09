@@ -1,13 +1,11 @@
 import jwt from "jsonwebtoken";
 import db from "../models/index.js";
 import authConfig from "../config/auth.config.js";
-import { getPlatformFromRequest } from "../utils/platformDetector.js";
 
 const { user: User, role: Role } = db;
 
 export const verifyToken = async (req, res, next) => {
   let token = null;
-  let platform = 'web';
 
   // Intentar obtener el token de la cookie primero (para web)
   if (req.cookies && req.cookies.auth_token) {
@@ -18,7 +16,6 @@ export const verifyToken = async (req, res, next) => {
     const authHeader = (req.headers["authorization"] || '').trim();
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
-      platform = getPlatformFromRequest(req);
     }
   }
 
@@ -38,20 +35,18 @@ export const verifyToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, authConfig.secret);
-    console.log("Token decodificado:", decoded);
-    // Verificar que la plataforma coincida
-    const requestPlatform = getPlatformFromRequest(req);
-    console.log("Plataforma del request:", requestPlatform);  
-    if (decoded.platform !== requestPlatform) {
+    console.log("Token decodificado:", decoded); 
+    if (decoded.platform) {
+      req.platform = decoded.platform;
+    } else {
       return res.status(403).json({
         success: false,
-        message: "Token no válido para esta plataforma"
+        message: "No se pudo determinar una plataforma válida"
       });
     }
 
     req.userId = decoded.id;
-    req.platform = platform;
-    
+    // Verificar si el usuario existe y está activo
     const user = await User.findByPk(req.userId, {
       include: [{
         model: Role,
@@ -75,30 +70,22 @@ export const verifyToken = async (req, res, next) => {
 
     // Verificar deviceInfo para fiscalizadores
     if (user.isFiscalizador()) {
-      const deviceInfo = req.headers["x-device-info"];
-      if (!deviceInfo) {
-        return res.status(403).json({ 
-          success: false,
-          message: "Se requiere el deviceInfo del dispositivo para fiscalizadores" 
-        });
-      }
-
-      try {
-        const parsedDeviceInfo = JSON.parse(deviceInfo);
+      // Si el token incluye deviceId, lo usamos para la verificación
+      if (decoded.deviceId) {
         const userDeviceInfo = typeof user.deviceInfo === 'string' 
           ? JSON.parse(user.deviceInfo) 
           : user.deviceInfo;
         
-        if (!parsedDeviceInfo.deviceId || parsedDeviceInfo.deviceId !== userDeviceInfo?.deviceId) {
+        if (decoded.deviceId !== userDeviceInfo?.deviceId) {
           return res.status(403).json({ 
             success: false,
             message: "DeviceId no válido para este fiscalizador" 
           });
         }
-      } catch (error) {
-        return res.status(400).json({
+      } else {
+        return res.status(403).json({ 
           success: false,
-          message: "Formato de deviceInfo inválido"
+          message: "No se ha aceptado los permisos necesarios para la aplicación" 
         });
       }
     }
