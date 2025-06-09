@@ -11,7 +11,7 @@ export default (sequelize, Sequelize) => {
         username: {
             type: Sequelize.STRING(20),
             allowNull: false,
-            unique: true,
+            //unique: true,
             validate: {
                 len: [3, 20],
                 is: /^[a-zA-Z0-9_]+$/
@@ -20,7 +20,7 @@ export default (sequelize, Sequelize) => {
         email: {
             type: Sequelize.STRING,
             allowNull: false,
-            unique: true,
+            //unique: true,
             validate: {
                 isEmail: true
             }
@@ -90,6 +90,18 @@ export default (sequelize, Sequelize) => {
             comment: 'Indica si el fiscalizador ya configuró su dispositivo en el primer login'
         }
     }, {
+        indexes: [
+            {
+                name: 'users_username_unique',
+                unique: true,
+                fields: ['username']
+            },
+            {
+                name: 'users_email_unique', 
+                unique: true,
+                fields: ['email']
+            }
+        ],
         instanceMethods: {
       isAdmin() {
         if (!this.roles) return false;
