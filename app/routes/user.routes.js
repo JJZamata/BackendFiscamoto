@@ -8,7 +8,8 @@ import {
   updateProfile,
   deactivateUser,
   activateUser,
-  listUsers
+  listUsers,
+  listFiscalizadores  // Nueva importación
 } from "../controllers/user.controller.js";
 
 import {
@@ -32,6 +33,7 @@ router.put("/profile", [verifyToken], updateProfile);
 // Rutas de administrador
 router.get("/admin/dashboard", [verifyToken, isAdmin], adminDashboard);
 router.get("/admin/users", [verifyToken, isAdmin, criticalLimiter], listUsers);
+router.get("/admin/fiscalizadores", [verifyToken, isAdmin, criticalLimiter], listFiscalizadores); // Nueva ruta
 router.put("/admin/users/:id/deactivate", [verifyToken, isAdmin], deactivateUser);
 router.put("/admin/users/:id/activate", [verifyToken, isAdmin], activateUser);
 

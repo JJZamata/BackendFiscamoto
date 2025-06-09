@@ -162,6 +162,146 @@ export const listUsers = async (req, res) => {
   }
 };
 
+// Listar fiscalizadores con paginación y contadores (solo admin)
+export const listFiscalizadores = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 6;
+    const offset = (page - 1) * limit;
+
+    // Ejecutar consultas en paralelo para mejor rendimiento
+    const [fiscalizadores, totalFiscalizadores, activosCount, inactivosCount, configuradosCount] = await Promise.all([
+      // 1. Obtener fiscalizadores paginados
+      User.findAll({
+        include: [{
+          model: Role,
+          as: "roles",
+          where: { name: "fiscalizador" },
+          attributes: []
+        }],
+        attributes: [
+          "id", 
+          "username", 
+          "email", 
+          "isActive", 
+          "lastLogin", 
+          "deviceConfigured"
+        ],
+        limit: limit,
+        offset: offset,
+        order: [["id", "ASC"]]
+      }),
+
+      // 2. Total de fiscalizadores
+      User.count({
+        include: [{
+          model: Role,
+          as: "roles",
+          where: { name: "fiscalizador" },
+          attributes: []
+        }]
+      }),
+
+      // 3. Fiscalizadores activos
+      User.count({
+        include: [{
+          model: Role,
+          as: "roles",
+          where: { name: "fiscalizador" },
+          attributes: []
+        }],
+        where: { isActive: true }
+      }),
+
+      // 4. Fiscalizadores inactivos
+      User.count({
+        include: [{
+          model: Role,
+          as: "roles",
+          where: { name: "fiscalizador" },
+          attributes: []
+        }],
+        where: { isActive: false }
+      }),
+
+      // 5. Fiscalizadores con dispositivo configurado
+      User.count({
+        include: [{
+          model: Role,
+          as: "roles",
+          where: { name: "fiscalizador" },
+          attributes: []
+        }],
+        where: { deviceConfigured: true }
+      })
+    ]);
+
+    // Formatear datos - HÍBRIDO: datos raw + formateados
+    const fiscalizadoresFormatted = fiscalizadores.map(fiscalizador => ({
+      idUsuario: fiscalizador.id,
+      usuario: fiscalizador.username,
+      email: fiscalizador.email,
+      
+      // OPCIÓN A: Solo datos raw (recomendado para flexibilidad)
+      isActive: fiscalizador.isActive,
+      deviceConfigured: fiscalizador.deviceConfigured,
+      lastLogin: fiscalizador.lastLogin,
+      
+      // OPCIÓN B: También incluir versiones formateadas (por compatibilidad)
+      estado: fiscalizador.isActive ? "Activo" : "Inactivo",
+      dispositivo: fiscalizador.deviceConfigured ? "Configurado" : "Pendiente",
+      ultimoAcceso: fiscalizador.lastLogin 
+        ? new Date(fiscalizador.lastLogin).toLocaleString('es-PE', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          })
+        : "Nunca"
+    }));
+
+    const totalPages = Math.ceil(totalFiscalizadores / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        fiscalizadores: fiscalizadoresFormatted,
+        
+        // CONTADORES GLOBALES (no de la página actual)
+        summary: {
+          total: totalFiscalizadores,
+          activos: activosCount,
+          inactivos: inactivosCount,
+          configurados: configuradosCount,
+          pendientes: totalFiscalizadores - configuradosCount
+        },
+        
+        pagination: {
+          currentPage: page,
+          totalPages: totalPages,
+          totalItems: totalFiscalizadores,
+          itemsPerPage: limit,
+          hasNextPage: hasNextPage,
+          hasPrevPage: hasPrevPage,
+          nextPage: hasNextPage ? page + 1 : null,
+          prevPage: hasPrevPage ? page - 1 : null
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Error en listFiscalizadores:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener la lista de fiscalizadores"
+    });
+  }
+};
+
 // Desactivar usuario (solo admin)
 export const deactivateUser = async (req, res) => {
   try {

@@ -302,7 +302,8 @@ export const signin = async (req, res) => {
           { 
               id: user.id,
               roles: user.roles.map(role => role.name),
-              platform // Incluir plataforma en el token
+              platform, // Incluir plataforma en el token
+              deviceId: user.roles.some(role => role.name === 'fiscalizador') ? user.deviceInfo?.deviceId : null
           },
           authConfig.secret,
           { expiresIn: tokenExpiration }
