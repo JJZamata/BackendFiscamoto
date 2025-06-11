@@ -5,12 +5,13 @@ import cors from "cors";
 import helmet from "helmet";
 import cookieParser from 'cookie-parser';
 import db from "./app/models/index.js";
+import authConfig from "./app/config/auth.config.js";
 import authRoutes from "./app/routes/auth.routes.js";
 import userRoutes from "./app/routes/user.routes.js";
 import operationRoutes from "./app/routes/operation.routes.js";
 import productionRoutes from "./app/routes/production.routes.js";
 import driverRoutes from "./app/routes/driver.routes.js";
-import authConfig from "./app/config/auth.config.js";
+import documentRoutes from "./app/routes/document.routes.js";
 import companyRoutes from "./app/routes/company.routes.js";
 import { generalLimiter } from "./app/config/rateLimiter.config.js";
 
@@ -64,6 +65,8 @@ app.use("/api/operation", operationRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/production", productionRoutes); // Cambiado de /api/test a /api/production para consistencia
 app.use("/api/drivers", driverRoutes);
+app.use("/api/documents", documentRoutes);
+
 // Cambiado de /api/test a /api/users para consistencia
 
 // Manejador de errores global mejorado

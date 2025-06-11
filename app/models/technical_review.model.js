@@ -1,3 +1,4 @@
+//models/technical_review.model.js
 export default (sequelize, Sequelize) => {
     const TechnicalReview = sequelize.define("technical_reviews", {
         reviewId: {
