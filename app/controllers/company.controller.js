@@ -13,6 +13,7 @@ export const listCompanies = async (req, res) => {
       attributes: [
         'ruc',
         'name',
+        'address',
         'expirationDate',
         'rucStatus',
         // Agregar conteo de vehículos usando subquery
