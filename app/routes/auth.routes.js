@@ -87,7 +87,7 @@ router.post("/signup",
 
 //inicio de sesión
 router.post("/signin", 
-  loginLimiter,
+  /*loginLimiter,*/
   signinValidation,
   signin
 );

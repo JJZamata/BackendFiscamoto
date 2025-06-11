@@ -22,7 +22,7 @@ const router = express.Router();
 router.get("/", [verifyToken, isAdminOrFiscalizador], listCompanies);
 
 // Rutas de administrador
-router.get("/admin/stats", [verifyToken, isAdmin, criticalLimiter], getCompanyStats);
+router.get("/admin/stats", [verifyToken, isAdmin, /*criticalLimiter*/], getCompanyStats);
 
 // Rutas compartidas (admin y fiscalizador)
 router.get("/search", [verifyToken, isAdminOrFiscalizador], searchCompanies);

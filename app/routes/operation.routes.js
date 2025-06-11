@@ -22,21 +22,21 @@ const router = express.Router();
 router.get("/driver/:id", [
   verifyToken, 
   isAdminOrFiscalizador, 
-  generalLimiter
+  /*generalLimiter*/
 ], getDriverInfo);
 
 // Obtener información del vehículo por placa
 router.get("/vehicle/:id", [
   verifyToken, 
   isAdminOrFiscalizador, 
-  generalLimiter
+  /*generalLimiter*/
 ], getVehicleInfo);
 
 // Endpoint combinado para obtener información completa
 router.post("/search", [
   verifyToken, 
   isAdminOrFiscalizador, 
-  generalLimiter
+  /*generalLimiter*/
 ], getOperationInfo);
 
 export default router;

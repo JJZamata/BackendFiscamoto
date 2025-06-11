@@ -19,14 +19,14 @@ import { criticalLimiter } from "../config/rateLimiter.config.js";
 const router = express.Router();
 
 // Rutas para administradores
-router.get("/list", [verifyToken, isAdmin, criticalLimiter], listDrivers);
+router.get("/list", [verifyToken, isAdmin, /*criticalLimiter*/], listDrivers);
 router.get("/stats", [verifyToken, isAdmin], getDriversStats);
-router.get("/search", [verifyToken, isAdmin, criticalLimiter], searchDrivers);
+router.get("/search", [verifyToken, isAdmin, /*criticalLimiter*/], searchDrivers);
 
 // Rutas compartidas (admin y fiscalizador)
 router.get("/:dni", [verifyToken, isAdminOrFiscalizador], getDriverByDni);
 
 // Ruta específica para fiscalizadores (consulta rápida durante fiscalización)
-router.get("/fiscalizador/search", [verifyToken, isFiscalizador, criticalLimiter], searchDrivers);
+router.get("/fiscalizador/search", [verifyToken, isFiscalizador, /*criticalLimiter*/], searchDrivers);
 
 export default router;

@@ -22,7 +22,7 @@ const router = express.Router();
 router.get("/", [
   verifyToken, 
   isAdminOrFiscalizador, 
-  generalLimiter
+  /*generalLimiter*/
 ], getDocuments);
 
 // Obtener documentos filtrados por tipo
@@ -30,7 +30,7 @@ router.get("/", [
 router.get("/type/:type", [
   verifyToken, 
   isAdminOrFiscalizador, 
-  generalLimiter
+  /*generalLimiter*/
 ], getDocumentsByType);
 
 export default router;
