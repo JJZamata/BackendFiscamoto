@@ -11,6 +11,7 @@ import operationRoutes from "./app/routes/operation.routes.js";
 import productionRoutes from "./app/routes/production.routes.js";
 import driverRoutes from "./app/routes/driver.routes.js";
 import authConfig from "./app/config/auth.config.js";
+import companyRoutes from "./app/routes/company.routes.js";
 import { generalLimiter } from "./app/config/rateLimiter.config.js";
 
 const app = express();
@@ -60,6 +61,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes); 
 app.use("/api/operation", operationRoutes);
+app.use("/api/companies", companyRoutes);
 app.use("/api/production", productionRoutes); // Cambiado de /api/test a /api/production para consistencia
 app.use("/api/drivers", driverRoutes);
 // Cambiado de /api/test a /api/users para consistencia

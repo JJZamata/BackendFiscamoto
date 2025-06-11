@@ -19,22 +19,22 @@ const router = express.Router();
 
 // Obtener información del conductor por DNI
 router.get("/driver/:id", [
-  //verifyToken, 
-  //isAdminOrFiscalizador, 
+  verifyToken, 
+  isAdminOrFiscalizador, 
   generalLimiter
 ], getDriverInfo);
 
 // Obtener información del vehículo por placa
 router.get("/vehicle/:id", [
-  //verifyToken, 
-  //isAdminOrFiscalizador, 
+  verifyToken, 
+  isAdminOrFiscalizador, 
   generalLimiter
 ], getVehicleInfo);
 
 // Endpoint combinado para obtener información completa
 router.post("/search", [
-  //verifyToken, 
-  //isAdminOrFiscalizador, 
+  verifyToken, 
+  isAdminOrFiscalizador, 
   generalLimiter
 ], getOperationInfo);
 
