@@ -10,7 +10,7 @@ import {
   activateUser,
   listUsers,
   listFiscalizadores  // Nueva importación
-} from "../controllers/user.controller.js";
+} from "../controllers/fisca.controller.js";
 
 import {
   verifyToken,
