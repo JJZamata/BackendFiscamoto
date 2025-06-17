@@ -63,7 +63,7 @@ app.get("/", (req, res) => {
 // Rutas de la API
 app.use("/api/auth", authRoutes);
 app.use("/api/users", usersRoutes); 
-app.use("/api/users", fiscaRoutes); 
+app.use("/api/fisca", fiscaRoutes); 
 app.use("/api/operation", operationRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/production", productionRoutes); // Cambiado de /api/test a /api/production para consistencia

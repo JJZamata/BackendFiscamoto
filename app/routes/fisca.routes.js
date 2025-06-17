@@ -23,9 +23,6 @@ import { criticalLimiter } from "../config/rateLimiter.config.js";
 
 const router = express.Router();
 
-// Rutas públicas
-router.get("/public", allAccess);
-
 // Rutas protegidas
 router.get("/profile", [verifyToken], userProfile);
 router.put("/profile", [verifyToken], updateProfile);
