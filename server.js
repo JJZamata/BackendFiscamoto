@@ -8,6 +8,7 @@ import db from "./app/models/index.js";
 import authConfig from "./app/config/auth.config.js";
 import authRoutes from "./app/routes/auth.routes.js";
 import usersRoutes from "./app/routes/users.routes.js";
+import fiscaRoutes from "./app/routes/fisca.routes.js";
 import operationRoutes from "./app/routes/operation.routes.js";
 import productionRoutes from "./app/routes/production.routes.js";
 import driverRoutes from "./app/routes/driver.routes.js";
@@ -62,6 +63,7 @@ app.get("/", (req, res) => {
 // Rutas de la API
 app.use("/api/auth", authRoutes);
 app.use("/api/users", usersRoutes); 
+app.use("/api/users", fiscaRoutes); 
 app.use("/api/operation", operationRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/production", productionRoutes); // Cambiado de /api/test a /api/production para consistencia
