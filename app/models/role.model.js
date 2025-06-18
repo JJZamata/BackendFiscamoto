@@ -8,7 +8,9 @@ export default (sequelize, Sequelize) => {
         name: {
             type: Sequelize.ENUM('admin', 'fiscalizador'),
             allowNull: false,
-            unique: true,
+            validate: {
+                notEmpty: true
+            }
         },
         description: {
             type: Sequelize.STRING,
@@ -19,6 +21,15 @@ export default (sequelize, Sequelize) => {
             allowNull: false,
             defaultValue: false
         }
+    }, {
+        tableName: 'roles',
+        timestamps: true,
+        indexes: [
+            {
+                unique: true,    // Definimos la unicidad solo aquí
+                fields: ['name'] // Esto creará el índice único
+            }
+        ],
     });
 
     // Método para inicializar roles por defecto

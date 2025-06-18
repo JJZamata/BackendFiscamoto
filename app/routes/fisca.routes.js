@@ -1,7 +1,6 @@
 import express from "express";
 
 import {
-  allAccess,
   userProfile,
   adminDashboard,
   fiscalizadorDashboard,
@@ -23,6 +22,11 @@ import { criticalLimiter } from "../config/rateLimiter.config.js";
 
 const router = express.Router();
 
+/*
+  Supervisar estas rutas si en verdad son necesarias debido a que ha otras rutas que cumplen la misma función
+  y ademas hay rutas que no tienen sentido en este contexto, como allAccess y userProfile
+
+*/
 // Rutas protegidas
 router.get("/profile", [verifyToken], userProfile);
 router.put("/profile", [verifyToken], updateProfile);

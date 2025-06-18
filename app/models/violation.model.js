@@ -8,7 +8,6 @@ export default (sequelize, Sequelize) => {
         code: {
             type: Sequelize.STRING(10),
             allowNull: false,
-            unique: true,
             validate: {
                 notEmpty: true,
                 len: [1, 10],
@@ -60,7 +59,12 @@ export default (sequelize, Sequelize) => {
             },
             {
                 fields: ['uit_percentage']
-            }
+            },
+            /*/ Índice compuesto para consultas frecuentes
+            {
+                name: 'violations_severity_uit_idx',
+                fields: ['severity', 'uit_percentage']
+            }*/
         ],
         getterMethods: {
             severityLabel() {

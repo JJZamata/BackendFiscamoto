@@ -1,47 +1,48 @@
 // routes/vehicle.routes.js
 import express from "express";
-
-import {
-  getVehiclesList,
-  getVehiclesStats
+import { 
+  getVehiclesList, 
+  getVehiclesStats, 
+  getVehicleById 
 } from "../controllers/vehicle.controller.js";
-
-import {
-  verifyToken,
-  isAdminOrFiscalizador
-} from "../middlewares/authJwt.js";
-
+import { verifyToken, isAdminOrFiscalizador } from "../middlewares/authJwt.js";
 import { generalLimiter } from "../config/rateLimiter.config.js";
+import { 
+  validateVehicleQuery,
+  validateVehicleByPlate,
+  validateVehicleStatsQuery,
+  sanitizeVehicleQuery,
+  logVehicleQuery
+} from "../middlewares/vehicleValidation.js";
 
 const router = express.Router();
 
-// Rutas para gestión de vehículos (requiere autenticación y rol de admin o fiscalizador)
-
-/**
- * @route GET /api/vehicles
- * @description Obtener listado paginado de vehículos
- * @access Private (Admin/Fiscalizador)
- * @params {number} page - Número de página (default: 1)
- * @params {number} limit - Elementos por página (default: 6)
- * @params {string} search - Término de búsqueda (opcional)
- * @params {string} status - Filtro por estado (opcional)
- * @params {number} type - Filtro por tipo de vehículo (opcional)  //uso de Swageer? o solo Postman?
- */
+// GET /api/vehicles - Obtener listado paginado de vehículos
 router.get("/", [
   verifyToken,
   isAdminOrFiscalizador,
-  generalLimiter
+  generalLimiter,
+  logVehicleQuery,              // Log para debugging
+  sanitizeVehicleQuery,         // Sanitizar y valores por defecto
+  validateVehicleQuery          // Validaciones con express-validator
 ], getVehiclesList);
 
-/**
- * @route GET /api/vehicles/stats
- * @description Obtener estadísticas de vehículos por estado
- * @access Private (Admin/Fiscalizador)
- */
+// GET /api/vehicles/stats - Obtener estadísticas de vehículos
 router.get("/stats", [
   verifyToken,
   isAdminOrFiscalizador,
-  generalLimiter
+  generalLimiter,
+  logVehicleQuery,
+  validateVehicleStatsQuery     // Validaciones para estadísticas
 ], getVehiclesStats);
+
+// GET /api/vehicles/:plateNumber - Obtener vehículo específico por número de placa
+router.get("/:plateNumber", [
+  verifyToken,
+  isAdminOrFiscalizador,
+  generalLimiter,
+  logVehicleQuery,
+  validateVehicleByPlate        // Validación de placa específica
+], getVehicleById);
 
 export default router;

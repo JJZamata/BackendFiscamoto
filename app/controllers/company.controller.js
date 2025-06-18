@@ -1,3 +1,4 @@
+//controllers/company.controller.js
 import db from "../models/index.js";
 const { company: Company, vehicle: Vehicle } = db;
 

@@ -1,15 +1,6 @@
 import db from "../models/index.js";
 const { user: User, role: Role } = db;
 
-// Acceso público
-export const allAccess = (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Contenido público",
-    version: "1.0.0"
-  });
-};
-
 // Perfil del usuario
 export const userProfile = async (req, res) => {
   try {
