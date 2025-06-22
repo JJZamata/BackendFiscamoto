@@ -15,6 +15,7 @@ import driverRoutes from "./app/routes/driver.routes.js";
 import documentRoutes from "./app/routes/document.routes.js";
 import companyRoutes from "./app/routes/company.routes.js";
 import vehicleRoutes from "./app/routes/vehicle.routes.js";
+import violationsRoutes from "./app/routes/violations.routes.js";
 import { generalLimiter } from "./app/config/rateLimiter.config.js";
 
 const app = express();
@@ -70,7 +71,7 @@ app.use("/api/production", productionRoutes); // Cambiado de /api/test a /api/pr
 app.use("/api/drivers", driverRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/vehicles", vehicleRoutes);
-
+app.use("/api/violations", violationsRoutes);
 // Cambiado de /api/test a /api/users para consistencia
 
 // Manejador de errores global mejorado

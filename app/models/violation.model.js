@@ -1,3 +1,4 @@
+//violations.model.js
 export default (sequelize, Sequelize) => {
     const Violation = sequelize.define("violations", {
         id: {
