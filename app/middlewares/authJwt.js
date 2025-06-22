@@ -1,3 +1,4 @@
+//middlewares/authJwt.js
 import jwt from "jsonwebtoken";
 import db from "../models/index.js";
 import authConfig from "../config/auth.config.js";

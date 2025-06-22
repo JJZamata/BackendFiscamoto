@@ -11,9 +11,9 @@ export default (sequelize, Sequelize) => {
             validate: {
                 notEmpty: true,
                 len: [1, 10],
-                is: /^[A-Z0-9]+$/
+                is: /^[A-Z0-9.]+$/ // Ahora permite puntos (para "M.1")
             }
-        },
+            },
         description: {
             type: Sequelize.TEXT,
             allowNull: false,
@@ -29,22 +29,38 @@ export default (sequelize, Sequelize) => {
             }
         },
         uitPercentage: {
-            type: Sequelize.DECIMAL(5, 2),
+            type: Sequelize.DECIMAL(5, 2), // Almacena 5.00 en lugar de "5%"
             allowNull: false,
             field: 'uit_percentage',
             validate: {
                 min: 0,
-                max: 999.99,
+                max: 100.00, // Ajusté el máximo a 100% ya que es porcentaje
                 isDecimal: true
+            },
+            get() {
+                // Formatea automáticamente al obtener el valor
+                const value = this.getDataValue('uitPercentage');
+                return `${value}%`;
+            },
+            set(value) {
+                // Acepta tanto "5%" como 5 y lo convierte a decimal
+                const numericValue = typeof value === 'string' 
+                ? parseFloat(value.replace('%', '')) 
+                : value;
+                this.setDataValue('uitPercentage', numericValue);
             }
         },
         administrativeMeasure: {
             type: Sequelize.TEXT,
-            allowNull: false,
+            allowNull: true, // Cambiado a true para permitir null (cuando es "—")
             field: 'administrative_measure',
-            validate: {
-                notEmpty: true
-            }
+            defaultValue: null // Opcional: explícitamente permitir null
+        },
+        target: {
+            type: Sequelize.ENUM('driver-owner', 'company'), // Nuevo campo
+            allowNull: false,
+            defaultValue: 'driver-owner', // Para mantener compatibilidad
+            comment: 'driver: conductor/propietario, company: persona jurídica'
         }
     }, {
         tableName: 'violations',
