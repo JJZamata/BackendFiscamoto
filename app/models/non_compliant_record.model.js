@@ -59,15 +59,15 @@ export default (sequelize, Sequelize) => {
             }
         },
         licenseId: {
-            type: Sequelize.STRING(15),
-            allowNull: true,//ya que puede no haber licencia
+            type: Sequelize.INTEGER,  // Cambiado a INTEGER para coincidir con la PK
+            allowNull: true,//ya que no puede ver licencia
             field: 'license_id',
             references: {
                 model: 'driving_licenses',
                 key: 'license_id'
             },
             validate: {
-                len: [5, 15],
+                isInt: true,          // Validación para enteros
                 notEmpty: true
             }
         },

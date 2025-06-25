@@ -1,12 +1,14 @@
+//driving_license.model.js
 export default (sequelize, Sequelize) => {
     const DrivingLicense = sequelize.define("driving_licenses", {
         licenseId: {
-            type: Sequelize.STRING(15),
+            type: Sequelize.INTEGER,  // Cambiado de STRING a INTEGER
             primaryKey: true,
             allowNull: false,
+            autoIncrement: true,     // Agregado para hacerlo auto-incremental
             field: 'license_id',
             validate: {
-                len: [5, 15],
+                isInt: true,        // Nueva validación para enteros
                 notEmpty: true
             },
             comment: 'ID único de la licencia'

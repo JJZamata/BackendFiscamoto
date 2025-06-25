@@ -32,7 +32,7 @@ export default (sequelize, Sequelize) => {
             }
         },
         licenseId: {
-            type: Sequelize.STRING(15),
+            type: Sequelize.INTEGER,  // Cambiado a INTEGER para coincidir con la PK
             allowNull: false,
             field: 'license_id',
             references: {
@@ -40,7 +40,7 @@ export default (sequelize, Sequelize) => {
                 key: 'license_id'
             },
             validate: {
-                len: [5, 15],
+                isInt: true,          // Validación para enteros
                 notEmpty: true
             }
         },
