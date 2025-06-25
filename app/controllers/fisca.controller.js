@@ -1,5 +1,7 @@
 //controllers/fisca.controller.js
 import db from "../models/index.js";
+import bcrypt from "bcrypt";
+import { Op } from "sequelize";
 const { user: User, role: Role } = db;
 
 // Perfil del usuario
@@ -154,6 +156,107 @@ export const listUsers = async (req, res) => {
   }
 };
 
+// **NUEVA FUNCIONALIDAD**: Búsqueda/filtrado de usuarios
+export const searchUsers = async (req, res) => {
+  try {
+    const { 
+      search, 
+      role, 
+      status, 
+      page = 1, 
+      limit = 10,
+      sortBy = 'username',
+      sortOrder = 'ASC'
+    } = req.query;
+
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Construir condiciones de búsqueda
+    let whereConditions = {};
+    let includeConditions = [{
+      model: Role,
+      as: "roles",
+      attributes: ["id", "name", "description"]
+    }];
+
+    // Búsqueda por texto (username o email)
+    if (search) {
+      whereConditions[Op.or] = [
+        { username: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } }
+      ];
+    }
+
+    // Filtro por estado activo/inactivo
+    if (status !== undefined) {
+      whereConditions.isActive = status === 'true';
+    }
+
+    // Filtro por rol
+    if (role) {
+      includeConditions[0].where = { name: role };
+    }
+
+    // Ejecutar búsqueda
+    const { count, rows: users } = await User.findAndCountAll({
+      where: whereConditions,
+      include: includeConditions,
+      attributes: { exclude: ["password"] },
+      limit: parseInt(limit),
+      offset: offset,
+      order: [[sortBy, sortOrder.toUpperCase()]],
+      distinct: true
+    });
+
+    // Formatear usuarios
+    const usersFormatted = users.map(user => ({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      isActive: user.isActive,
+      estado: user.isActive ? "Activo" : "Inactivo",
+      lastLogin: user.lastLogin,
+      deviceConfigured: user.deviceConfigured,
+      roles: user.roles.map(role => ({
+        id: role.id,
+        name: role.name,
+        description: role.description
+      })),
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }));
+
+    const totalPages = Math.ceil(count / parseInt(limit));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        users: usersFormatted,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: totalPages,
+          totalItems: count,
+          itemsPerPage: parseInt(limit),
+          hasNextPage: parseInt(page) < totalPages,
+          hasPrevPage: parseInt(page) > 1
+        },
+        filters: {
+          search: search || null,
+          role: role || null,
+          status: status || null
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Error en searchUsers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al buscar usuarios"
+    });
+  }
+};
+
 // Listar fiscalizadores con paginación y contadores (solo admin)
 export const listFiscalizadores = async (req, res) => {
   try {
@@ -290,6 +393,110 @@ export const listFiscalizadores = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al obtener la lista de fiscalizadores"
+    });
+  }
+};
+
+// Actualizar datos de usuario (solo admin)
+export const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      username, 
+      email, 
+      isActive, 
+      deviceConfigured,
+      newPassword 
+    } = req.body;
+
+    // Validar que el ID sea válido
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "ID del usuario es requerido"
+      });
+    }
+
+    // Buscar el usuario
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    // Validar email único si se está cambiando
+    if (email && email !== user.email) {
+      const emailExists = await User.findOne({ 
+        where: { 
+          email,
+          id: { [Op.ne]: id } 
+        } 
+      });
+      
+      if (emailExists) {
+        return res.status(400).json({
+          success: false,
+          message: "El email ya está en uso por otro usuario"
+        });
+      }
+    }
+
+    // Validar username único si se está cambiando
+    if (username && username !== user.username) {
+      const usernameExists = await User.findOne({ 
+        where: { 
+          username,
+          id: { [Op.ne]: id } 
+        } 
+      });
+      
+      if (usernameExists) {
+        return res.status(400).json({
+          success: false,
+          message: "El nombre de usuario ya está en uso"
+        });
+      }
+    }
+
+    // Preparar datos para actualizacion
+    const updateData = {};
+    
+    if (username !== undefined) updateData.username = username;
+    if (email !== undefined) updateData.email = email;
+    if (isActive !== undefined) updateData.isActive = isActive;
+    if (deviceConfigured !== undefined) updateData.deviceConfigured = deviceConfigured;
+    
+    // Encriptar nueva password si se proporciona
+    if (newPassword) {
+      updateData.password = newPassword;
+    }
+
+    // Actualizar usuario
+    await user.update(updateData);
+
+    // Obtener usuario actualizado con roles
+    const updatedUser = await User.findByPk(id, {
+      include: [{
+        model: Role,
+        as: "roles",
+        attributes: ["id", "name"]
+      }],
+      attributes: { exclude: ["password"] }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Usuario actualizado exitosamente",
+      data: updatedUser
+    });
+
+  } catch (error) {
+    console.error("Error en updateUser:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar el usuario"
     });
   }
 };

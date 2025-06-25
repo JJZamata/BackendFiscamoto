@@ -9,7 +9,9 @@ import {
   deactivateUser,
   activateUser,
   listUsers,
-  listFiscalizadores  // Nueva importación
+  listFiscalizadores,  // Nueva importación
+  searchUsers,        // Nueva importación
+  updateUser          // Nueva importación
 } from "../controllers/fisca.controller.js";
 
 import {
@@ -36,6 +38,14 @@ router.put("/profile", [verifyToken], updateProfile);
 router.get("/admin/dashboard", [verifyToken, isAdmin], adminDashboard);
 router.get("/admin/users", [verifyToken, isAdmin, criticalLimiter], listUsers);
 router.get("/admin/fiscalizadores", [verifyToken, isAdmin, criticalLimiter], listFiscalizadores); // Nueva ruta
+
+// Búsqueda y filtrado de usuarios
+router.get("/admin/users/search", [verifyToken, isAdmin, criticalLimiter], searchUsers);
+
+// Actualizar datos de usuario
+router.put("/admin/users/:id", [verifyToken, isAdmin], updateUser);
+
+// Activar/Desactivar usuarios
 router.put("/admin/users/:id/deactivate", [verifyToken, isAdmin], deactivateUser);
 router.put("/admin/users/:id/activate", [verifyToken, isAdmin], activateUser);
 
