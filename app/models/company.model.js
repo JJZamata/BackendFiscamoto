@@ -46,7 +46,7 @@ export default (sequelize, Sequelize) => {
         },
         rucUpdateDate: {
             type: Sequelize.DATEONLY,
-            allowNull: false,
+            allowNull: true,//nulo dado al momento de la creación
             field: 'ruc_update_date',
             comment: 'fecha_actualizacion_ruc'
         }

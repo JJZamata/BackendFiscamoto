@@ -3,6 +3,10 @@ import express from "express";
 import { 
   listCompanies, 
   getCompanyDetails, 
+  createCompany,
+  updateCompany,
+  deleteCompany,
+  bulkDeleteCompanies,
   getCompanyStats, 
   filterCompaniesByStatus,
   searchCompanies 
@@ -17,17 +21,39 @@ import { criticalLimiter } from "../config/rateLimiter.config.js";
 
 const router = express.Router();
 
-// Rutas públicas (si es necesario)
+// ============================================
+// RUTAS DE LECTURA (GET) - Admin y Fiscalizador
+// ============================================
 
-// Rutas protegidas - Listado principal con paginación
+// Listado principal con paginación
 router.get("/", [verifyToken, isAdminOrFiscalizador], listCompanies);
 
-// Rutas de administrador
+// Búsqueda de empresas
+router.get("/search", [verifyToken, isAdminOrFiscalizador], searchCompanies);
+
+// Filtrar por estado RUC
+router.get("/filter", [verifyToken, isAdminOrFiscalizador], filterCompaniesByStatus);
+
+// Obtener detalles de una empresa específica (debe ir después de las rutas con parámetros específicos)
+router.get("/:ruc", [verifyToken, isAdminOrFiscalizador], getCompanyDetails);
+
+// ============================================
+// RUTAS DE ADMINISTRADOR (CRUD COMPLETO)
+// ============================================
+
+// Estadísticas de empresas (solo admin)
 router.get("/admin/stats", [verifyToken, isAdmin, criticalLimiter], getCompanyStats);
 
-// Rutas compartidas (admin y fiscalizador)
-router.get("/search", [verifyToken, isAdminOrFiscalizador], searchCompanies);
-router.get("/filter", [verifyToken, isAdminOrFiscalizador], filterCompaniesByStatus);
-router.get("/:ruc", [verifyToken, isAdminOrFiscalizador], getCompanyDetails);
+// Crear nueva empresa (solo admin)
+router.post("/", [verifyToken, isAdmin, criticalLimiter], createCompany);
+
+// Actualizar empresa (solo admin)
+router.put("/:ruc", [verifyToken, isAdmin, criticalLimiter], updateCompany);
+
+// Eliminar empresa individual (solo admin)
+router.delete("/:ruc", [verifyToken, isAdmin, criticalLimiter], deleteCompany);
+
+// Eliminación masiva de empresas (solo admin)
+router.delete("/bulk/delete", [verifyToken, isAdmin, criticalLimiter], bulkDeleteCompanies);
 
 export default router;
