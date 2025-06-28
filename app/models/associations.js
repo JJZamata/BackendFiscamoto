@@ -124,19 +124,47 @@ export const setupDatabaseAssociations = (db) => {
     as: 'user'
   });
 
-  // 7. Relaciones de Control Record y Fotos (Many-to-Many)
-  db.controlRecord.belongsToMany(db.photo, {
-    through: db.recordPhoto,
-    foreignKey: 'controlRecordId',
+  // 7. Relaciones de Fotos con Actas (Campos separados)
+  // Para Actas Conformes
+  db.compliantRecord.belongsToMany(db.photo, {
+    through: {
+      model: db.recordPhoto,
+      unique: false
+    },
+    foreignKey: 'compliantRecordId',
     otherKey: 'photoId',
     as: 'photos'
   });
 
-  db.photo.belongsToMany(db.controlRecord, {
-    through: db.recordPhoto,
+  db.photo.belongsToMany(db.compliantRecord, {
+    through: {
+      model: db.recordPhoto,
+      unique: false
+    },
     foreignKey: 'photoId',
-    otherKey: 'controlRecordId',
-    as: 'controlRecords'
+    otherKey: 'compliantRecordId',
+    as: 'compliantRecords'
+  });
+
+  // Para Actas No Conformes
+  db.nonCompliantRecord.belongsToMany(db.photo, {
+    through: {
+      model: db.recordPhoto,
+      unique: false
+    },
+    foreignKey: 'nonCompliantRecordId',
+    otherKey: 'photoId',
+    as: 'photos'
+  });
+
+  db.photo.belongsToMany(db.nonCompliantRecord, {
+    through: {
+      model: db.recordPhoto,
+      unique: false
+    },
+    foreignKey: 'photoId',
+    otherKey: 'nonCompliantRecordId',
+    as: 'nonCompliantRecords'
   });
 
   // 8. Relaciones de Actas Conformes

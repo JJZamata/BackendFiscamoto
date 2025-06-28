@@ -62,7 +62,7 @@ export default (sequelize, Sequelize) => {
             }
         },
         licenseId: {
-            type: Sequelize.STRING(15),
+            type: Sequelize.INTEGER,
             allowNull: false,
             field: 'license_id',
             references: {

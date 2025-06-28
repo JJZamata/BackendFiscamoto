@@ -90,7 +90,7 @@ export default (sequelize, Sequelize) => {
         },
         s3FileUrl: {
             type: Sequelize.TEXT,
-            allowNull: false,
+            allowNull: true,//el escaneo del documento se hace luego
             field: 's3_file_url',
             validate: {
                 notEmpty: true,

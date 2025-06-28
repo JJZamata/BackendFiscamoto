@@ -1,17 +1,31 @@
-// models/record_photo.model.js
 export default (sequelize, Sequelize) => {
+    const { Op } = Sequelize; // ✅ Para usar operadores en índices condicionales
+
     const RecordPhoto = sequelize.define("record_photos", {
         id: {
             type: Sequelize.INTEGER,
             primaryKey: true,
             autoIncrement: true
         },
-        controlRecordId: {
+        compliantRecordId: {
             type: Sequelize.INTEGER,
-            allowNull: false,
-            field: 'control_record_id',
+            allowNull: true,
+            field: 'compliant_record_id',
             references: {
-                model: 'control_records',
+                model: 'compliant_records',
+                key: 'id'
+            },
+            validate: {
+                isInt: true,
+                min: 1
+            }
+        },
+        nonCompliantRecordId: {
+            type: Sequelize.INTEGER,
+            allowNull: true,
+            field: 'non_compliant_record_id',
+            references: {
+                model: 'non_compliant_records',
                 key: 'id'
             },
             validate: {
@@ -23,10 +37,6 @@ export default (sequelize, Sequelize) => {
             type: Sequelize.INTEGER,
             allowNull: false,
             field: 'photo_id',
-            references: {
-                model: 'photos',
-                key: 'id'
-            },
             validate: {
                 isInt: true,
                 min: 1
@@ -36,17 +46,42 @@ export default (sequelize, Sequelize) => {
         tableName: 'record_photos',
         timestamps: true,
         indexes: [
+            // ✔️ Unicidad por acta conforme
             {
                 unique: true,
-                fields: ['control_record_id', 'photo_id']
+                fields: ['compliant_record_id', 'photo_id'],
+                where: {
+                    compliant_record_id: { [Op.ne]: null }
+                }
             },
+            // ✔️ Unicidad por acta no conforme
             {
-                fields: ['control_record_id']
+                unique: true,
+                fields: ['non_compliant_record_id', 'photo_id'],
+                where: {
+                    non_compliant_record_id: { [Op.ne]: null }
+                }
             },
-            {
-                fields: ['photo_id']
+            // Index simples
+            { fields: ['compliant_record_id'] },
+            { fields: ['non_compliant_record_id'] },
+            { fields: ['photo_id'] }
+        ],
+        validate: {
+            // ✔️ Validación a nivel de modelo
+            exactlyOneRecord() {
+                const hasCompliant = this.compliantRecordId !== null && this.compliantRecordId !== undefined;
+                const hasNonCompliant = this.nonCompliantRecordId !== null && this.nonCompliantRecordId !== undefined;
+
+                if (hasCompliant && hasNonCompliant) {
+                    throw new Error('Una foto no puede estar asociada a ambos tipos de acta');
+                }
+
+                if (!hasCompliant && !hasNonCompliant) {
+                    throw new Error('Una foto debe estar asociada a al menos un tipo de acta');
+                }
             }
-        ]
+        }
     });
 
     return RecordPhoto;
