@@ -16,6 +16,26 @@ const calculateDocumentStatus = (expirationDate) => {
   return 'vigente';
 };
 
+// Función para validar formato de fecha
+const isValidDate = (dateString) => {
+  const date = new Date(dateString);
+  return date instanceof Date && !isNaN(date);
+};
+
+// Función para validar si existe una placa de vehículo
+const validateVehicleExists = async (plateNumber) => {
+  const vehicle = await db.sequelize.query(
+    'SELECT plate_number FROM vehicles WHERE plate_number = :plate',
+    {
+      replacements: { plate: plateNumber },
+      type: QueryTypes.SELECT
+    }
+  );
+  return vehicle.length > 0;
+};
+
+// ================== ENDPOINTS DE CONSULTA ==================
+
 // Controlador para obtener listado unificado de documentos
 export const getDocuments = async (req, res) => {
   try {
@@ -257,6 +277,624 @@ export const getDocumentsByType = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error al obtener documentos por tipo"
+    });
+  }
+};
+
+// ================== ENDPOINTS DE CREACIÓN ==================
+
+// Crear nueva revisión técnica
+export const createTechnicalReview = async (req, res) => {
+  try {
+    const {
+      vehicle_plate,
+      issue_date,
+      expiration_date,
+      inspection_result,
+      certifying_company
+    } = req.body;
+
+    // Validaciones
+    if (!vehicle_plate || !issue_date || !expiration_date || !inspection_result || !certifying_company) {
+      return res.status(400).json({
+        success: false,
+        message: "Todos los campos son obligatorios: vehicle_plate, issue_date, expiration_date, inspection_result, certifying_company"
+      });
+    }
+
+    // Validar fechas
+    if (!isValidDate(issue_date) || !isValidDate(expiration_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Formato de fecha inválido. Use formato YYYY-MM-DD"
+      });
+    }
+
+    // Validar que la fecha de vencimiento sea posterior a la de emisión
+    if (new Date(expiration_date) <= new Date(issue_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "La fecha de vencimiento debe ser posterior a la fecha de emisión"
+      });
+    }
+
+    // Validar resultado de inspección
+    const validResults = ['APROBADO', 'OBSERVADO'];
+    if (!validResults.includes(inspection_result.toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "El resultado de inspección debe ser 'APROBADO' u 'OBSERVADO'"
+      });
+    }
+
+    // Validar que el vehículo existe
+    const vehicleExists = await validateVehicleExists(vehicle_plate);
+    if (!vehicleExists) {
+      return res.status(404).json({
+        success: false,
+        message: "El vehículo con la placa especificada no existe"
+      });
+    }
+
+    // Crear la revisión técnica
+    const insertQuery = `
+      INSERT INTO technical_reviews (vehicle_plate, issue_date, expiration_date, inspection_result, certifying_company)
+      VALUES (:vehicle_plate, :issue_date, :expiration_date, :inspection_result, :certifying_company)
+    `;
+
+    await db.sequelize.query(insertQuery, {
+      replacements: {
+        vehicle_plate,
+        issue_date,
+        expiration_date,
+        inspection_result: inspection_result.toUpperCase(),
+        certifying_company
+      },
+      type: QueryTypes.INSERT
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Revisión técnica creada exitosamente",
+      data: {
+        vehicle_plate,
+        issue_date,
+        expiration_date,
+        inspection_result: inspection_result.toUpperCase(),
+        certifying_company
+      }
+    });
+
+  } catch (error) {
+    console.error("Error en createTechnicalReview:", error);
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: "Ya existe una revisión técnica para este vehículo con estos datos"
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: "Error al crear la revisión técnica"
+    });
+  }
+};
+
+// Crear nuevo seguro AFOCAT
+export const createInsurance = async (req, res) => {
+  try {
+    const {
+      insurance_company_name,
+      policy_number,
+      vehicle_plate,
+      start_date,
+      expiration_date,
+      coverage,
+      license_id,
+      owner_dni
+    } = req.body;
+
+    // Validaciones básicas
+    if (!insurance_company_name || !policy_number || !vehicle_plate || !start_date || !expiration_date || !coverage || !owner_dni) {
+      return res.status(400).json({
+        success: false,
+        message: "Los campos obligatorios son: insurance_company_name, policy_number, vehicle_plate, start_date, expiration_date, coverage, owner_dni"
+      });
+    }
+
+    // Validar fechas
+    if (!isValidDate(start_date) || !isValidDate(expiration_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Formato de fecha inválido. Use formato YYYY-MM-DD"
+      });
+    }
+
+    // Validar que la fecha de vencimiento sea posterior a la de inicio
+    if (new Date(expiration_date) <= new Date(start_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "La fecha de vencimiento debe ser posterior a la fecha de inicio"
+      });
+    }
+
+    // Validar que el vehículo existe
+    const vehicleExists = await validateVehicleExists(vehicle_plate);
+    if (!vehicleExists) {
+      return res.status(404).json({
+        success: false,
+        message: "El vehículo con la placa especificada no existe"
+      });
+    }
+
+    // Validar que el propietario existe
+    const ownerExists = await db.sequelize.query(
+      'SELECT dni FROM owners WHERE dni = :dni',
+      {
+        replacements: { dni: owner_dni },
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (ownerExists.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "El propietario con el DNI especificado no existe"
+      });
+    }
+
+    // Validar licencia si se proporciona
+    if (license_id) {
+      const licenseExists = await db.sequelize.query(
+        'SELECT license_id FROM driving_licenses WHERE license_id = :license_id',
+        {
+          replacements: { license_id },
+          type: QueryTypes.SELECT
+        }
+      );
+
+      if (licenseExists.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "La licencia especificada no existe"
+        });
+      }
+    }
+
+    // Crear el seguro
+    const insertQuery = `
+      INSERT INTO insurances (insurance_company_name, policy_number, vehicle_plate, start_date, expiration_date, coverage, license_id, owner_dni)
+      VALUES (:insurance_company_name, :policy_number, :vehicle_plate, :start_date, :expiration_date, :coverage, :license_id, :owner_dni)
+    `;
+
+    await db.sequelize.query(insertQuery, {
+      replacements: {
+        insurance_company_name,
+        policy_number,
+        vehicle_plate,
+        start_date,
+        expiration_date,
+        coverage,
+        license_id: license_id || null,
+        owner_dni
+      },
+      type: QueryTypes.INSERT
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Seguro AFOCAT creado exitosamente",
+      data: {
+        insurance_company_name,
+        policy_number,
+        vehicle_plate,
+        start_date,
+        expiration_date,
+        coverage,
+        license_id: license_id || null,
+        owner_dni
+      }
+    });
+
+  } catch (error) {
+    console.error("Error en createInsurance:", error);
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: "Ya existe un seguro con este número de póliza"
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: "Error al crear el seguro AFOCAT"
+    });
+  }
+};
+
+// ================== ENDPOINTS DE ACTUALIZACIÓN ==================
+
+// Actualizar revisión técnica
+export const updateTechnicalReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      vehicle_plate,
+      issue_date,
+      expiration_date,
+      inspection_result,
+      certifying_company
+    } = req.body;
+
+    // Verificar que la revisión técnica existe
+    const existingReview = await db.sequelize.query(
+      'SELECT review_id FROM technical_reviews WHERE review_id = :id',
+      {
+        replacements: { id },
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (existingReview.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Revisión técnica no encontrada"
+      });
+    }
+
+    // Validar campos si se proporcionan
+    if (issue_date && !isValidDate(issue_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Formato de fecha de emisión inválido"
+      });
+    }
+
+    if (expiration_date && !isValidDate(expiration_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Formato de fecha de vencimiento inválido"
+      });
+    }
+
+    if (issue_date && expiration_date && new Date(expiration_date) <= new Date(issue_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "La fecha de vencimiento debe ser posterior a la fecha de emisión"
+      });
+    }
+
+    if (inspection_result && !['APROBADO', 'OBSERVADO'].includes(inspection_result.toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "El resultado de inspección debe ser 'APROBADO' u 'OBSERVADO'"
+      });
+    }
+
+    if (vehicle_plate) {
+      const vehicleExists = await validateVehicleExists(vehicle_plate);
+      if (!vehicleExists) {
+        return res.status(404).json({
+          success: false,
+          message: "El vehículo con la placa especificada no existe"
+        });
+      }
+    }
+
+    // Construir la query de actualización dinámicamente
+    const fieldsToUpdate = [];
+    const replacements = { id };
+
+    if (vehicle_plate) {
+      fieldsToUpdate.push('vehicle_plate = :vehicle_plate');
+      replacements.vehicle_plate = vehicle_plate;
+    }
+    if (issue_date) {
+      fieldsToUpdate.push('issue_date = :issue_date');
+      replacements.issue_date = issue_date;
+    }
+    if (expiration_date) {
+      fieldsToUpdate.push('expiration_date = :expiration_date');
+      replacements.expiration_date = expiration_date;
+    }
+    if (inspection_result) {
+      fieldsToUpdate.push('inspection_result = :inspection_result');
+      replacements.inspection_result = inspection_result.toUpperCase();
+    }
+    if (certifying_company) {
+      fieldsToUpdate.push('certifying_company = :certifying_company');
+      replacements.certifying_company = certifying_company;
+    }
+
+    if (fieldsToUpdate.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No se proporcionaron campos para actualizar"
+      });
+    }
+
+    const updateQuery = `
+      UPDATE technical_reviews 
+      SET ${fieldsToUpdate.join(', ')}
+      WHERE review_id = :id
+    `;
+
+    await db.sequelize.query(updateQuery, {
+      replacements,
+      type: QueryTypes.UPDATE
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Revisión técnica actualizada exitosamente"
+    });
+
+  } catch (error) {
+    console.error("Error en updateTechnicalReview:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar la revisión técnica"
+    });
+  }
+};
+
+// Actualizar seguro AFOCAT
+export const updateInsurance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      insurance_company_name,
+      policy_number,
+      vehicle_plate,
+      start_date,
+      expiration_date,
+      coverage,
+      license_id,
+      owner_dni
+    } = req.body;
+
+    // Verificar que el seguro existe
+    const existingInsurance = await db.sequelize.query(
+      'SELECT id FROM insurances WHERE id = :id',
+      {
+        replacements: { id },
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (existingInsurance.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Seguro AFOCAT no encontrado"
+      });
+    }
+
+    // Validaciones
+    if (start_date && !isValidDate(start_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Formato de fecha de inicio inválido"
+      });
+    }
+
+    if (expiration_date && !isValidDate(expiration_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Formato de fecha de vencimiento inválido"
+      });
+    }
+
+    if (start_date && expiration_date && new Date(expiration_date) <= new Date(start_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "La fecha de vencimiento debe ser posterior a la fecha de inicio"
+      });
+    }
+
+    if (vehicle_plate) {
+      const vehicleExists = await validateVehicleExists(vehicle_plate);
+      if (!vehicleExists) {
+        return res.status(404).json({
+          success: false,
+          message: "El vehículo con la placa especificada no existe"
+        });
+      }
+    }
+
+    if (owner_dni) {
+      const ownerExists = await db.sequelize.query(
+        'SELECT dni FROM owners WHERE dni = :dni',
+        {
+          replacements: { dni: owner_dni },
+          type: QueryTypes.SELECT
+        }
+      );
+
+      if (ownerExists.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "El propietario con el DNI especificado no existe"
+        });
+      }
+    }
+
+    if (license_id) {
+      const licenseExists = await db.sequelize.query(
+        'SELECT license_id FROM driving_licenses WHERE license_id = :license_id',
+        {
+          replacements: { license_id },
+          type: QueryTypes.SELECT
+        }
+      );
+
+      if (licenseExists.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "La licencia especificada no existe"
+        });
+      }
+    }
+
+    // Construir la query de actualización dinámicamente
+    const fieldsToUpdate = [];
+    const replacements = { id };
+
+    if (insurance_company_name) {
+      fieldsToUpdate.push('insurance_company_name = :insurance_company_name');
+      replacements.insurance_company_name = insurance_company_name;
+    }
+    if (policy_number) {
+      fieldsToUpdate.push('policy_number = :policy_number');
+      replacements.policy_number = policy_number;
+    }
+    if (vehicle_plate) {
+      fieldsToUpdate.push('vehicle_plate = :vehicle_plate');
+      replacements.vehicle_plate = vehicle_plate;
+    }
+    if (start_date) {
+      fieldsToUpdate.push('start_date = :start_date');
+      replacements.start_date = start_date;
+    }
+    if (expiration_date) {
+      fieldsToUpdate.push('expiration_date = :expiration_date');
+      replacements.expiration_date = expiration_date;
+    }
+    if (coverage) {
+      fieldsToUpdate.push('coverage = :coverage');
+      replacements.coverage = coverage;
+    }
+    if (license_id !== undefined) {
+      fieldsToUpdate.push('license_id = :license_id');
+      replacements.license_id = license_id || null;
+    }
+    if (owner_dni) {
+      fieldsToUpdate.push('owner_dni = :owner_dni');
+      replacements.owner_dni = owner_dni;
+    }
+
+    if (fieldsToUpdate.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No se proporcionaron campos para actualizar"
+      });
+    }
+
+    const updateQuery = `
+      UPDATE insurances 
+      SET ${fieldsToUpdate.join(', ')}
+      WHERE id = :id
+    `;
+
+    await db.sequelize.query(updateQuery, {
+      replacements,
+      type: QueryTypes.UPDATE
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Seguro AFOCAT actualizado exitosamente"
+    });
+
+  } catch (error) {
+    console.error("Error en updateInsurance:", error);
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: "Ya existe un seguro con este número de póliza"
+      });
+    }
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar el seguro AFOCAT"
+    });
+  }
+};
+
+// ================== ENDPOINTS DE ELIMINACIÓN ==================
+
+// Eliminar revisión técnica
+export const deleteTechnicalReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar que la revisión técnica existe
+    const existingReview = await db.sequelize.query(
+      'SELECT review_id FROM technical_reviews WHERE review_id = :id',
+      {
+        replacements: { id },
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (existingReview.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Revisión técnica no encontrada"
+      });
+    }
+
+    // Eliminar la revisión técnica
+    await db.sequelize.query(
+      'DELETE FROM technical_reviews WHERE review_id = :id',
+      {
+        replacements: { id },
+        type: QueryTypes.DELETE
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Revisión técnica eliminada exitosamente"
+    });
+
+  } catch (error) {
+    console.error("Error en deleteTechnicalReview:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al eliminar la revisión técnica"
+    });
+  }
+};
+
+// Eliminar seguro AFOCAT
+export const deleteInsurance = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar que el seguro existe
+    const existingInsurance = await db.sequelize.query(
+      'SELECT id FROM insurances WHERE id = :id',
+      {
+        replacements: { id },
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (existingInsurance.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Seguro AFOCAT no encontrado"
+      });
+    }
+
+    // Eliminar el seguro
+    await db.sequelize.query(
+      'DELETE FROM insurances WHERE id = :id',
+      {
+        replacements: { id },
+        type: QueryTypes.DELETE
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Seguro AFOCAT eliminado exitosamente"
+    });
+
+  } catch (error) {
+    console.error("Error en deleteInsurance:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al eliminar el seguro AFOCAT"
     });
   }
 };
