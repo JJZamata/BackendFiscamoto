@@ -39,12 +39,6 @@ export default (sequelize, Sequelize) => {
             {
                 unique: true,
                 fields: ['non_compliant_record_id', 'violation_id']
-            },
-            {
-                fields: ['non_compliant_record_id']
-            },
-            {
-                fields: ['violation_id']
             }
         ]
     });
