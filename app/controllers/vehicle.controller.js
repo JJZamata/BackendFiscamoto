@@ -9,7 +9,7 @@ const buildWhereCondition = (search, status, type) => {
   if (search) {
     whereCondition[Op.or] = [
       { plateNumber: { [Op.like]: `%${search}%` } },
-      { '$owner.first_name$': { [Op.like]: `%${search}%` } },//ojo qveriguar porque
+      { '$owner.first_name$': { [Op.like]: `%${search}%` } },
       { '$owner.last_name$': { [Op.like]: `%${search}%` } },
       { '$company.name$': { [Op.like]: `%${search}%` } }
     ];
@@ -20,7 +20,6 @@ const buildWhereCondition = (search, status, type) => {
   }
 
   if (type) {
-    // PROBLEMA CORREGIDO: En el original funciona con typeId, no type
     whereCondition.typeId = type;
   }
 
@@ -54,10 +53,269 @@ const formatVehiclesResponse = (vehicles) => {
   }));
 };
 
-// Controlador principal para listado de vehículos
+// CREATE - Crear nuevo vehículo
+export const createVehicle = async (req, res) => {
+  try {
+    const {
+      plateNumber,
+      companyRuc,
+      ownerDni,
+      typeId,
+      vehicleStatus = 'OPERATIVO',
+      brand,
+      model,
+      manufacturingYear
+    } = req.body;
+
+    // Verificar si ya existe un vehículo con esa placa
+    const existingVehicle = await db.vehicle.findOne({
+      where: { plateNumber: plateNumber.toUpperCase() }
+    });
+
+    if (existingVehicle) {
+      return res.status(409).json({
+        success: false,
+        message: `Ya existe un vehículo con la placa ${plateNumber}`
+      });
+    }
+
+    // Verificar que existan las referencias
+    const [company, owner, vehicleType] = await Promise.all([
+      db.company.findOne({ where: { ruc: companyRuc } }),
+      db.owner.findOne({ where: { dni: ownerDni } }),
+      db.vehicleType.findOne({ where: { typeId: typeId } })
+    ]);
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: `Empresa con RUC ${companyRuc} no encontrada`
+      });
+    }
+
+    if (!owner) {
+      return res.status(404).json({
+        success: false,
+        message: `Propietario con DNI ${ownerDni} no encontrado`
+      });
+    }
+
+    if (!vehicleType) {
+      return res.status(404).json({
+        success: false,
+        message: `Tipo de vehículo con ID ${typeId} no encontrado`
+      });
+    }
+
+    // Crear el vehículo
+    const newVehicle = await db.vehicle.create({
+      plateNumber: plateNumber.toUpperCase(),
+      companyRuc,
+      ownerDni,
+      typeId,
+      vehicleStatus,
+      brand,
+      model,
+      manufacturingYear
+    });
+
+    // Obtener el vehículo creado con sus relaciones
+    const createdVehicle = await db.vehicle.findOne({
+      where: { plateNumber: newVehicle.plateNumber },
+      include: [
+        {
+          model: db.owner,
+          as: 'owner',
+          attributes: ['dni', 'firstName', 'lastName']
+        },
+        {
+          model: db.company,
+          as: 'company',
+          attributes: ['ruc', 'name', 'rucStatus']
+        },
+        {
+          model: db.vehicleType,
+          as: 'vehicleType',
+          attributes: ['typeId', 'name']
+        }
+      ]
+    });
+
+    const formattedVehicle = formatVehiclesResponse([createdVehicle])[0];
+
+    res.status(201).json({
+      success: true,
+      data: formattedVehicle,
+      message: `Vehículo con placa ${plateNumber} creado exitosamente`
+    });
+
+  } catch (error) {
+    console.error("Error en createVehicle:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al crear el vehículo",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// UPDATE - Actualizar vehículo
+export const updateVehicle = async (req, res) => {
+  try {
+    const { plateNumber } = req.params;
+    const {
+      companyRuc,
+      ownerDni,
+      typeId,
+      vehicleStatus,
+      brand,
+      model,
+      manufacturingYear
+    } = req.body;
+
+    // Verificar que el vehículo existe
+    const existingVehicle = await db.vehicle.findOne({
+      where: { plateNumber: plateNumber.toUpperCase() }
+    });
+
+    if (!existingVehicle) {
+      return res.status(404).json({
+        success: false,
+        message: `Vehículo con placa ${plateNumber} no encontrado`
+      });
+    }
+
+    // Verificar referencias si se proporcionan
+    const validationPromises = [];
+    
+    if (companyRuc) {
+      validationPromises.push(
+        db.company.findOne({ where: { ruc: companyRuc } }).then(company => {
+          if (!company) throw new Error(`Empresa con RUC ${companyRuc} no encontrada`);
+        })
+      );
+    }
+
+    if (ownerDni) {
+      validationPromises.push(
+        db.owner.findOne({ where: { dni: ownerDni } }).then(owner => {
+          if (!owner) throw new Error(`Propietario con DNI ${ownerDni} no encontrado`);
+        })
+      );
+    }
+
+    if (typeId) {
+      validationPromises.push(
+        db.vehicleType.findOne({ where: { typeId: typeId } }).then(vehicleType => {
+          if (!vehicleType) throw new Error(`Tipo de vehículo con ID ${typeId} no encontrado`);
+        })
+      );
+    }
+
+    try {
+      await Promise.all(validationPromises);
+    } catch (validationError) {
+      return res.status(404).json({
+        success: false,
+        message: validationError.message
+      });
+    }
+
+    // Actualizar el vehículo
+    const updatedData = {};
+    if (companyRuc) updatedData.companyRuc = companyRuc;
+    if (ownerDni) updatedData.ownerDni = ownerDni;
+    if (typeId) updatedData.typeId = typeId;
+    if (vehicleStatus) updatedData.vehicleStatus = vehicleStatus;
+    if (brand) updatedData.brand = brand;
+    if (model) updatedData.model = model;
+    if (manufacturingYear) updatedData.manufacturingYear = manufacturingYear;
+
+    await db.vehicle.update(updatedData, {
+      where: { plateNumber: plateNumber.toUpperCase() }
+    });
+
+    // Obtener el vehículo actualizado con sus relaciones
+    const updatedVehicle = await db.vehicle.findOne({
+      where: { plateNumber: plateNumber.toUpperCase() },
+      include: [
+        {
+          model: db.owner,
+          as: 'owner',
+          attributes: ['dni', 'firstName', 'lastName']
+        },
+        {
+          model: db.company,
+          as: 'company',
+          attributes: ['ruc', 'name', 'rucStatus']
+        },
+        {
+          model: db.vehicleType,
+          as: 'vehicleType',
+          attributes: ['typeId', 'name']
+        }
+      ]
+    });
+
+    const formattedVehicle = formatVehiclesResponse([updatedVehicle])[0];
+
+    res.status(200).json({
+      success: true,
+      data: formattedVehicle,
+      message: `Vehículo con placa ${plateNumber} actualizado exitosamente`
+    });
+
+  } catch (error) {
+    console.error("Error en updateVehicle:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar el vehículo",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// DELETE - Eliminar vehículo
+export const deleteVehicle = async (req, res) => {
+  try {
+    const { plateNumber } = req.params;
+
+    // Verificar que el vehículo existe
+    const existingVehicle = await db.vehicle.findOne({
+      where: { plateNumber: plateNumber.toUpperCase() }
+    });
+
+    if (!existingVehicle) {
+      return res.status(404).json({
+        success: false,
+        message: `Vehículo con placa ${plateNumber} no encontrado`
+      });
+    }
+
+    // Eliminar el vehículo
+    await db.vehicle.destroy({
+      where: { plateNumber: plateNumber.toUpperCase() }
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Vehículo con placa ${plateNumber} eliminado exitosamente`
+    });
+
+  } catch (error) {
+    console.error("Error en deleteVehicle:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al eliminar el vehículo",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// READ - Controlador principal para listado de vehículos
 export const getVehiclesList = async (req, res) => {
   try {
-    // Parámetros de paginación con valores por defecto (como en el original)
+    // Parámetros de paginación con valores por defecto
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 6;
     const offset = (page - 1) * limit;
@@ -68,10 +326,10 @@ export const getVehiclesList = async (req, res) => {
     // Construir filtros
     const whereCondition = buildWhereCondition(search, status, type);
 
-    // PROBLEMA CORREGIDO: Ordenamiento debe ser exactamente como en el original
+    // Ordenamiento
     const orderConfig = [[sortBy, sortOrder]];
 
-    // Configuración de inclusiones (exacta del original)
+    // Configuración de inclusiones
     const includeConfig = [
       {
         model: db.owner,
@@ -93,7 +351,7 @@ export const getVehiclesList = async (req, res) => {
       }
     ];
 
-    // Consulta optimizada (exacta del original)
+    // Consulta optimizada
     const { count, rows: vehicles } = await db.vehicle.findAndCountAll({
       where: whereCondition,
       include: includeConfig,
@@ -116,7 +374,7 @@ export const getVehiclesList = async (req, res) => {
     // Formatear respuesta
     const formattedVehicles = formatVehiclesResponse(vehicles);
 
-    // Información de paginación (exacta del original)
+    // Información de paginación
     const totalPages = Math.ceil(count / limit);
     const pagination = {
       currentPage: page,
@@ -159,7 +417,7 @@ export const getVehiclesList = async (req, res) => {
   }
 };
 
-// Controlador para estadísticas de vehículos - CORREGIDO
+// READ - Controlador para estadísticas de vehículos
 export const getVehiclesStats = async (req, res) => {
   try {
     const { dateFrom, dateTo, groupBy } = req.query;
@@ -172,7 +430,6 @@ export const getVehiclesStats = async (req, res) => {
       if (dateTo) dateFilter.createdAt[Op.lte] = dateTo;
     }
 
-    // PROBLEMA CORREGIDO: Usar la misma estructura de columnas que el original
     const statusStats = await db.vehicle.findAll({
       where: dateFilter,
       attributes: [
@@ -191,7 +448,6 @@ export const getVehiclesStats = async (req, res) => {
         where: dateFilter,
         attributes: [
           [db.sequelize.col('vehicleType.name'), 'typeName'],
-          // PROBLEMA CORREGIDO: Usar el alias correcto para la tabla
           [db.sequelize.fn('COUNT', db.sequelize.col('vehicles.plate_number')), 'count']
         ],
         include: [{
@@ -278,7 +534,7 @@ export const getVehiclesStats = async (req, res) => {
   }
 };
 
-// Controlador para obtener vehículo individual por placa
+// READ - Controlador para obtener vehículo individual por placa
 export const getVehicleById = async (req, res) => {
   try {
     const { plateNumber } = req.params;
