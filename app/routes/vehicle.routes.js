@@ -14,8 +14,8 @@ import {
   validateVehicleQuery,
   validateVehicleByPlate,
   validateVehicleStatsQuery,
-  validateCreateVehicle,
-  validateUpdateVehicle,
+  //validateCreateVehicle,
+  //validateUpdateVehicle,
   sanitizeVehicleQuery,
   logVehicleQuery
 } from "../middlewares/vehicleValidation.js";
@@ -56,7 +56,7 @@ router.post("/", [
   isAdminOrFiscalizador,
   generalLimiter,
   logVehicleQuery,
-  validateCreateVehicle
+  //validateCreateVehicle
 ], createVehicle);
 
 // PUT /api/vehicles/:plateNumber - Actualizar vehículo completo
@@ -66,7 +66,7 @@ router.put("/:plateNumber", [
   generalLimiter,
   logVehicleQuery,
   validateVehicleByPlate,
-  validateUpdateVehicle
+  //validateUpdateVehicle
 ], updateVehicle);
 
 // DELETE /api/vehicles/:plateNumber - Eliminar vehículo
