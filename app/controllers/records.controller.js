@@ -34,7 +34,7 @@ export const getAllRecords = async (req, res) => {
     if (search) {
       searchConditions = {
         [Op.or]: [
-          { vehiclePlate: { [Op.iLike]: `%${search}%` } },
+          { vehicle_plate: { [Op.iLike]: `%${search}%` } },
           { location: { [Op.iLike]: `%${search}%` } },
           { observations: { [Op.iLike]: `%${search}%` } }
         ]
@@ -80,14 +80,26 @@ export const getAllRecords = async (req, res) => {
       }
     ];
 
-    let compliantRecords = [];
-    let nonCompliantRecords = [];
+    // Primero obtener totales para el summary (sin paginación)
     let totalCompliant = 0;
     let totalNonCompliant = 0;
 
-    // Obtener actas conformes si corresponde
     if (recordType === 'all' || recordType === 'conforme') {
-      const compliantResult = await CompliantRecords.findAndCountAll({
+      totalCompliant = await CompliantRecords.count({ where: searchConditions });
+    }
+
+    if (recordType === 'all' || recordType === 'noconforme') {
+      totalNonCompliant = await NonCompliantRecords.count({ where: searchConditions });
+    }
+
+    const totalRecords = totalCompliant + totalNonCompliant;
+
+    // Ahora obtener los datos paginados
+    let allRecords = [];
+
+    if (recordType === 'conforme') {
+      // Solo actas conformes
+      const compliantResult = await CompliantRecords.findAll({
         where: searchConditions,
         attributes: [
           'id', 'inspector_id', 'license_id', 'vehicle_plate', 
@@ -95,19 +107,17 @@ export const getAllRecords = async (req, res) => {
         ],
         include: commonIncludes,
         order: [[sortBy, sortOrder]],
-        limit: recordType === 'conforme' ? limit : Math.ceil(limit / 2),
-        offset: recordType === 'conforme' ? offset : Math.floor(offset / 2)
+        limit: limit,
+        offset: offset
       });
 
-      compliantRecords = compliantResult.rows.map(record => ({
+      allRecords = compliantResult.map(record => ({
         ...record.toJSON(),
         recordType: 'conforme'
       }));
-      totalCompliant = compliantResult.count;
-    }
 
-    // Obtener actas no conformes si corresponde
-    if (recordType === 'all' || recordType === 'noconforme') {
+    } else if (recordType === 'noconforme') {
+      // Solo actas no conformes
       const nonCompliantIncludes = [
         ...commonIncludes,
         {
@@ -125,7 +135,7 @@ export const getAllRecords = async (req, res) => {
         }
       ];
 
-      const nonCompliantResult = await NonCompliantRecords.findAndCountAll({
+      const nonCompliantResult = await NonCompliantRecords.findAll({
         where: searchConditions,
         attributes: [
           'id', 'inspector_id', 'company_ruc', 'license_id', 'vehicle_plate',
@@ -133,40 +143,86 @@ export const getAllRecords = async (req, res) => {
         ],
         include: nonCompliantIncludes,
         order: [[sortBy, sortOrder]],
-        limit: recordType === 'noconforme' ? limit : Math.ceil(limit / 2),
-        offset: recordType === 'noconforme' ? offset : Math.floor(offset / 2)
+        limit: limit,
+        offset: offset
       });
 
-      nonCompliantRecords = nonCompliantResult.rows.map(record => ({
+      allRecords = nonCompliantResult.map(record => ({
         ...record.toJSON(),
         recordType: 'noconforme'
       }));
-      totalNonCompliant = nonCompliantResult.count;
-    }
 
-    // Combinar y ordenar resultados si se solicitan todos
-    let allRecords = [];
-    let totalRecords = 0;
+    } else {
+      // Ambos tipos - necesitamos una estrategia diferente
+      // Obtener ambos tipos y luego ordenar y paginar manualmente
+      
+      const compliantRecords = await CompliantRecords.findAll({
+        where: searchConditions,
+        attributes: [
+          'id', 'inspector_id', 'license_id', 'vehicle_plate', 
+          'inspection_date_time', 'location', 'observations', 'createdAt', 'updatedAt'
+        ],
+        include: commonIncludes
+      });
 
-    if (recordType === 'all') {
-      allRecords = [...compliantRecords, ...nonCompliantRecords];
-      // Reordenar la combinación según el criterio solicitado
-      allRecords.sort((a, b) => {
+      const nonCompliantIncludes = [
+        ...commonIncludes,
+        {
+          model: Companies,
+          as: 'company',
+          required: false,
+          attributes: ['ruc', 'name', 'address']
+        },
+        {
+          model: Violations,
+          as: 'violations',
+          required: false,
+          attributes: ['id', 'code', 'description', 'severity', 'uit_percentage'],
+          through: { attributes: [] }
+        }
+      ];
+
+      const nonCompliantRecords = await NonCompliantRecords.findAll({
+        where: searchConditions,
+        attributes: [
+          'id', 'inspector_id', 'company_ruc', 'license_id', 'vehicle_plate',
+          'inspection_date_time', 'location', 'observations', 'createdAt', 'updatedAt'
+        ],
+        include: nonCompliantIncludes
+      });
+
+      // Combinar ambos tipos
+      const combinedRecords = [
+        ...compliantRecords.map(record => ({
+          ...record.toJSON(),
+          recordType: 'conforme'
+        })),
+        ...nonCompliantRecords.map(record => ({
+          ...record.toJSON(),
+          recordType: 'noconforme'
+        }))
+      ];
+
+      // Ordenar manualmente
+      combinedRecords.sort((a, b) => {
+        const aValue = a[sortBy];
+        const bValue = b[sortBy];
+        
         if (sortOrder === 'DESC') {
-          return new Date(b[sortBy]) - new Date(a[sortBy]);
+          if (sortBy === 'createdAt' || sortBy === 'inspection_date_time') {
+            return new Date(bValue) - new Date(aValue);
+          }
+          return bValue > aValue ? 1 : -1;
         } else {
-          return new Date(a[sortBy]) - new Date(b[sortBy]);
+          if (sortBy === 'createdAt' || sortBy === 'inspection_date_time') {
+            return new Date(aValue) - new Date(bValue);
+          }
+          return aValue > bValue ? 1 : -1;
         }
       });
-      // Aplicar paginación manual a la combinación
-      allRecords = allRecords.slice(offset, offset + limit);
-      totalRecords = totalCompliant + totalNonCompliant;
-    } else if (recordType === 'conforme') {
-      allRecords = compliantRecords;
-      totalRecords = totalCompliant;
-    } else {
-      allRecords = nonCompliantRecords;
-      totalRecords = totalNonCompliant;
+
+      // Aplicar paginación manual
+      allRecords = combinedRecords.slice(offset, offset + limit);
     }
 
     // Formatear la respuesta
@@ -215,10 +271,20 @@ export const getAllRecords = async (req, res) => {
       violationsCount: record.violations ? record.violations.length : 0
     }));
 
+    // Calcular total de páginas basado en el tipo de filtro
+    let filteredTotal = totalRecords;
+    if (recordType === 'conforme') {
+      filteredTotal = totalCompliant;
+    } else if (recordType === 'noconforme') {
+      filteredTotal = totalNonCompliant;
+    }
+
+    const totalPages = Math.ceil(filteredTotal / limit);
+
     res.status(200).json({
       success: true,
-      total: totalRecords,
-      pages: Math.ceil(totalRecords / limit),
+      total: filteredTotal,
+      pages: totalPages,
       currentPage: page,
       filters: {
         search,
