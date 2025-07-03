@@ -149,7 +149,7 @@ export const validateVehicleQuery = [
 
   query('search')
     .optional()
-    .isLength({ min: 1, max: 100 })
+    .isLength({ min: 3, max: 100 })
     .withMessage('El término de búsqueda debe tener entre 1 y 100 caracteres')
     .trim()
     .escape(),

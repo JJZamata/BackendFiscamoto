@@ -34,9 +34,9 @@ export const getAllRecords = async (req, res) => {
     if (search) {
       searchConditions = {
         [Op.or]: [
-          { vehicle_plate: { [Op.iLike]: `%${search}%` } },
-          { location: { [Op.iLike]: `%${search}%` } },
-          { observations: { [Op.iLike]: `%${search}%` } }
+          { vehicle_plate: { [Op.like]: `%${search}%` } },
+          { location: { [Op.like]: `%${search}%` } },
+          { observations: { [Op.like]: `%${search}%` } }
         ]
       };
     }
