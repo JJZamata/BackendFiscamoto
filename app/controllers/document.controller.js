@@ -337,7 +337,7 @@ export const createTechnicalReview = async (req, res) => {
     }
 
     // Crear la revisión técnica usando el modelo de Sequelize
-    const technicalReview = await db.TechnicalReview.create({
+    const technicalReview = await db.technicalReview.create({
       review_id,
       vehicle_plate,
       issue_date,
