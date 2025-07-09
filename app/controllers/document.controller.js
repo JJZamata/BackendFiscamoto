@@ -294,6 +294,8 @@ export const createTechnicalReview = async (req, res) => {
       certifying_company
     } = req.body;
 
+    console.log(review_id, vehicle_plate, issue_date, expiration_date, inspection_result, certifying_company);
+    console.log("Datos recibidos para crear revisión técnica:", req.body);
     // Validaciones
     if (!review_id || !vehicle_plate || !issue_date || !expiration_date || !inspection_result || !certifying_company) {
       return res.status(400).json({
@@ -338,24 +340,24 @@ export const createTechnicalReview = async (req, res) => {
 
     // Crear la revisión técnica usando el modelo de Sequelize
     const technicalReview = await db.technicalReview.create({
-      review_id,
-      vehicle_plate,
-      issue_date,
-      expiration_date,
-      inspection_result: inspection_result.toUpperCase(),
-      certifying_company
+      reviewId: review_id,
+      vehiclePlate: vehicle_plate,
+      issueDate: issue_date,
+      expirationDate: expiration_date,
+      inspectionResult: inspection_result.toUpperCase(),
+      certifyingCompany: certifying_company
     });
 
     res.status(201).json({
       success: true,
       message: "Revisión técnica creada exitosamente",
       data: {
-        review_id: technicalReview.review_id,
-        vehicle_plate: technicalReview.vehicle_plate,
-        issue_date: technicalReview.issue_date,
-        expiration_date: technicalReview.expiration_date,
-        inspection_result: technicalReview.inspection_result,
-        certifying_company: technicalReview.certifying_company,
+        review_id: technicalReview.reviewId,
+        vehicle_plate: technicalReview.vehiclePlate,
+        issue_date: technicalReview.issueDate,
+        expiration_date: technicalReview.expirationDate,
+        inspection_result: technicalReview.inspectionResult,
+        certifying_company: technicalReview.certifyingCompany,
         createdAt: technicalReview.createdAt,
         updatedAt: technicalReview.updatedAt
       }
@@ -371,7 +373,7 @@ export const createTechnicalReview = async (req, res) => {
     }
     res.status(500).json({
       success: false,
-      message: "Error al crear la revisión técnica"
+      message: error
     });
   }
 };
