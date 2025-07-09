@@ -287,6 +287,7 @@ export const getDocumentsByType = async (req, res) => {
 export const createTechnicalReview = async (req, res) => {
   try {
     const {
+      review_id,
       vehicle_plate,
       issue_date,
       expiration_date,
@@ -295,10 +296,10 @@ export const createTechnicalReview = async (req, res) => {
     } = req.body;
 
     // Validaciones
-    if (!vehicle_plate || !issue_date || !expiration_date || !inspection_result || !certifying_company) {
+    if (!review_id || !vehicle_plate || !issue_date || !expiration_date || !inspection_result || !certifying_company) {
       return res.status(400).json({
         success: false,
-        message: "Todos los campos son obligatorios: vehicle_plate, issue_date, expiration_date, inspection_result, certifying_company"
+        message: "Todos los campos son obligatorios: review_id, vehicle_plate, issue_date, expiration_date, inspection_result, certifying_company"
       });
     }
 
@@ -338,12 +339,13 @@ export const createTechnicalReview = async (req, res) => {
 
     // Crear la revisión técnica
     const insertQuery = `
-      INSERT INTO technical_reviews (vehicle_plate, issue_date, expiration_date, inspection_result, certifying_company)
-      VALUES (:vehicle_plate, :issue_date, :expiration_date, :inspection_result, :certifying_company)
+      INSERT INTO technical_reviews (review_id, vehicle_plate, issue_date, expiration_date, inspection_result, certifying_company)
+      VALUES (:review_id, :vehicle_plate, :issue_date, :expiration_date, :inspection_result, :certifying_company)
     `;
 
     await db.sequelize.query(insertQuery, {
       replacements: {
+        review_id,
         vehicle_plate,
         issue_date,
         expiration_date,
@@ -357,6 +359,7 @@ export const createTechnicalReview = async (req, res) => {
       success: true,
       message: "Revisión técnica creada exitosamente",
       data: {
+        review_id,
         vehicle_plate,
         issue_date,
         expiration_date,
