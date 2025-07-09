@@ -283,7 +283,6 @@ export const getDocumentsByType = async (req, res) => {
 
 // ================== ENDPOINTS DE CREACIÓN ==================
 
-// Crear nueva revisión técnica
 export const createTechnicalReview = async (req, res) => {
   try {
     const {
@@ -337,34 +336,28 @@ export const createTechnicalReview = async (req, res) => {
       });
     }
 
-    // Crear la revisión técnica
-    const insertQuery = `
-      INSERT INTO technical_reviews (review_id, vehicle_plate, issue_date, expiration_date, inspection_result, certifying_company)
-      VALUES (:review_id, :vehicle_plate, :issue_date, :expiration_date, :inspection_result, :certifying_company)
-    `;
-
-    await db.sequelize.query(insertQuery, {
-      replacements: {
-        review_id,
-        vehicle_plate,
-        issue_date,
-        expiration_date,
-        inspection_result: inspection_result.toUpperCase(),
-        certifying_company
-      },
-      type: QueryTypes.INSERT
+    // Crear la revisión técnica usando el modelo de Sequelize
+    const technicalReview = await db.TechnicalReview.create({
+      review_id,
+      vehicle_plate,
+      issue_date,
+      expiration_date,
+      inspection_result: inspection_result.toUpperCase(),
+      certifying_company
     });
 
     res.status(201).json({
       success: true,
       message: "Revisión técnica creada exitosamente",
       data: {
-        review_id,
-        vehicle_plate,
-        issue_date,
-        expiration_date,
-        inspection_result: inspection_result.toUpperCase(),
-        certifying_company
+        review_id: technicalReview.review_id,
+        vehicle_plate: technicalReview.vehicle_plate,
+        issue_date: technicalReview.issue_date,
+        expiration_date: technicalReview.expiration_date,
+        inspection_result: technicalReview.inspection_result,
+        certifying_company: technicalReview.certifying_company,
+        createdAt: technicalReview.createdAt,
+        updatedAt: technicalReview.updatedAt
       }
     });
 
