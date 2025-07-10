@@ -416,8 +416,11 @@ export const createInsurance = async (req, res) => {
       });
     }
 
-    // Validar que el vehículo existe
-    const vehicleExists = await validateVehicleExists(vehicle_plate);
+    // Validar que el vehículo existe usando ORM
+    const vehicleExists = await db.vehicle.findOne({
+      where: { plateNumber: vehicle_plate }
+    });
+
     if (!vehicleExists) {
       return res.status(404).json({
         success: false,
@@ -425,33 +428,25 @@ export const createInsurance = async (req, res) => {
       });
     }
 
-    // Validar que el propietario existe
-    const ownerExists = await db.sequelize.query(
-      'SELECT dni FROM owners WHERE dni = :dni',
-      {
-        replacements: { dni: owner_dni },
-        type: QueryTypes.SELECT
-      }
-    );
+    // Validar que el propietario existe usando ORM
+    const ownerExists = await db.owner.findOne({
+      where: { dni: owner_dni }
+    });
 
-    if (ownerExists.length === 0) {
+    if (!ownerExists) {
       return res.status(404).json({
         success: false,
         message: "El propietario con el DNI especificado no existe"
       });
     }
 
-    // Validar licencia si se proporciona
+    // Validar licencia si se proporciona usando ORM
     if (license_id) {
-      const licenseExists = await db.sequelize.query(
-        'SELECT license_id FROM driving_licenses WHERE license_id = :license_id',
-        {
-          replacements: { license_id },
-          type: QueryTypes.SELECT
-        }
-      );
+      const licenseExists = await db.drivingLicense.findOne({
+        where: { licenseId: license_id }
+      });
 
-      if (licenseExists.length === 0) {
+      if (!licenseExists) {
         return res.status(404).json({
           success: false,
           message: "La licencia especificada no existe"
@@ -459,38 +454,33 @@ export const createInsurance = async (req, res) => {
       }
     }
 
-    // Crear el seguro
-    const insertQuery = `
-      INSERT INTO insurances (insurance_company_name, policy_number, vehicle_plate, start_date, expiration_date, coverage, license_id, owner_dni)
-      VALUES (:insurance_company_name, :policy_number, :vehicle_plate, :start_date, :expiration_date, :coverage, :license_id, :owner_dni)
-    `;
-
-    await db.sequelize.query(insertQuery, {
-      replacements: {
-        insurance_company_name,
-        policy_number,
-        vehicle_plate,
-        start_date,
-        expiration_date,
-        coverage,
-        license_id: license_id || null,
-        owner_dni
-      },
-      type: QueryTypes.INSERT
+    // Crear el seguro usando ORM
+    const insurance = await db.insurance.create({
+      insuranceCompanyName: insurance_company_name,
+      policyNumber: policy_number,
+      vehiclePlate: vehicle_plate,
+      startDate: start_date,
+      expirationDate: expiration_date,
+      coverage,
+      licenseId: license_id || null,
+      ownerDni: owner_dni
     });
 
     res.status(201).json({
       success: true,
       message: "Seguro AFOCAT creado exitosamente",
       data: {
-        insurance_company_name,
-        policy_number,
-        vehicle_plate,
-        start_date,
-        expiration_date,
-        coverage,
-        license_id: license_id || null,
-        owner_dni
+        id: insurance.id,
+        insurance_company_name: insurance.insuranceCompanyName,
+        policy_number: insurance.policyNumber,
+        vehicle_plate: insurance.vehiclePlate,
+        start_date: insurance.startDate,
+        expiration_date: insurance.expirationDate,
+        coverage: insurance.coverage,
+        license_id: insurance.licenseId,
+        owner_dni: insurance.ownerDni,
+        createdAt: insurance.createdAt,
+        updatedAt: insurance.updatedAt
       }
     });
 
@@ -500,6 +490,12 @@ export const createInsurance = async (req, res) => {
       return res.status(409).json({
         success: false,
         message: "Ya existe un seguro con este número de póliza"
+      });
+    }
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Error de validación: " + error.errors.map(e => e.message).join(', ')
       });
     }
     res.status(500).json({
