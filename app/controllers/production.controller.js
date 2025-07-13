@@ -643,14 +643,14 @@ export const updateCompliantRecordS3Url = async (req, res) => {
   try {
     const { actaId } = req.params;
     const { s3FileUrl } = req.body;
-
+/*
     // Validaciones básicas
     if (!s3FileUrl) {
       return res.status(400).json({
         success: false,
         message: "URL del archivo S3 es requerida"
       });
-    }
+    }*/
 /*
     // Validar formato de URL básico
     const urlPattern = /^https?:\/\/.+/;
@@ -716,14 +716,14 @@ export const updateNonCompliantRecordS3Url = async (req, res) => {
   try {
     const { actaId } = req.params;
     const { s3FileUrl } = req.body;
-
+/*
     // Validaciones básicas
     if (!s3FileUrl) {
       return res.status(400).json({
         success: false,
         message: "URL del archivo S3 es requerida"
       });
-    }
+    }*/
 /*
     // Validar formato de URL básico
     const urlPattern = /^https?:\/\/.+/;

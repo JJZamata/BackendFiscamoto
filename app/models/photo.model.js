@@ -36,12 +36,13 @@ export default (sequelize, Sequelize) => {
         url: {
             type: Sequelize.TEXT,
             allowNull: false,
+            /*
             validate: {
                 notEmpty: true,
                 isUrl: {
                     msg: 'Debe ser una URL válida'
                 }
-            }
+            }*/
         },
         captureDate: {
             type: Sequelize.DATE,

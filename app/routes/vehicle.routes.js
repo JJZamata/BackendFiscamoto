@@ -14,8 +14,8 @@ import {
   validateVehicleQuery,
   validateVehicleByPlate,
   validateVehicleStatsQuery,
-  //validateCreateVehicle,
-  //validateUpdateVehicle,
+  validateCreateVehicle,
+  validateUpdateVehicle,
   sanitizeVehicleQuery,
   logVehicleQuery
 } from "../middlewares/vehicleValidation.js";
@@ -24,11 +24,11 @@ const router = express.Router();
 
 // GET /api/vehicles - Obtener listado paginado de vehículos
 router.get("/", [
-  verifyToken,
+  /*verifyToken,
   isAdminOrFiscalizador,
   generalLimiter,
   logVehicleQuery,
-  sanitizeVehicleQuery,
+  sanitizeVehicleQuery,*/
   validateVehicleQuery
 ], getVehiclesList);
 
@@ -43,9 +43,9 @@ router.get("/stats", [
 
 // GET /api/vehicles/:plateNumber - Obtener vehículo específico por número de placa
 router.get("/:plateNumber", [
-  verifyToken,
-  isAdminOrFiscalizador,
-  generalLimiter,
+  /*verifyToken,*/
+  /*isAdminOrFiscalizador,*/
+  /*generalLimiter,*/
   logVehicleQuery,
   validateVehicleByPlate
 ], getVehicleById);
@@ -56,7 +56,7 @@ router.post("/", [
   isAdminOrFiscalizador,
   generalLimiter,
   logVehicleQuery,
-  //validateCreateVehicle
+  validateCreateVehicle
 ], createVehicle);
 
 // PUT /api/vehicles/:plateNumber - Actualizar vehículo completo
@@ -66,7 +66,7 @@ router.put("/:plateNumber", [
   generalLimiter,
   logVehicleQuery,
   validateVehicleByPlate,
-  //validateUpdateVehicle
+  validateUpdateVehicle
 ], updateVehicle);
 
 // DELETE /api/vehicles/:plateNumber - Eliminar vehículo

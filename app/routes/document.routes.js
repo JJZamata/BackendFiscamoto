@@ -27,11 +27,11 @@ const router = express.Router();
 
 // Obtener listado general de todos los documentos (revisiones técnicas + seguros AFOCAT)
 // Con paginación de 6 elementos por página
-router.get("/", [
+router.get("/",/* [
   verifyToken, 
   isAdminOrFiscalizador, 
   generalLimiter
-], getDocuments);
+],*/ getDocuments);
 
 // Obtener documentos filtrados por tipo
 // Parámetros: type = 'revision' | 'afocat'

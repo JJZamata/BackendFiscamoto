@@ -30,7 +30,7 @@ router.delete("/:dni", [verifyToken, isAdmin, criticalLimiter], deleteDriver);
 router.get("/list", [verifyToken, isAdmin, criticalLimiter], listDrivers);
 router.get("/stats", [verifyToken, isAdmin], getDriversStats);
 router.get("/search", [verifyToken, isAdmin, criticalLimiter], searchDrivers);
-router.get("/:dni", [verifyToken, isAdmin], getDriverByDni);
+router.get("/:dni", /*[verifyToken, isAdmin], */getDriverByDni);
 
 /*
   Faltaria ver este endpoint si es necesario, ya que la ruta de searchDrivers ya cumple con la función de búsqueda
